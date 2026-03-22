@@ -30,7 +30,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🔗 3. 데이터 관리 ---
+# --- 🔗 3. 데이터 관리 (긴급 복구 로직) ---
 if 'user_id' not in st.session_state:
     st.session_state.user_id = st.query_params.get("user", "")
 
@@ -51,22 +51,27 @@ if 'collection' not in st.session_state:
                 d = json.load(f)
                 st.session_state.wishlist = d.get("wishlist", [])
                 for itm in d.get("collection", []):
+                    # ✅ 핵심 복구: 데이터 형식이 'genre'를 포함하든 안 하든 상관없이 불러옴
                     try:
                         r = requests.get(itm["url"], timeout=5, headers={"User-Agent": "Mozilla/5.0"})
                         if r.status_code == 200:
-                            st.session_state.collection.append({"img": Image.open(io.BytesIO(r.content)).convert("RGB"), "url": itm["url"]})
+                            st.session_state.collection.append({
+                                "img": Image.open(io.BytesIO(r.content)).convert("RGB"), 
+                                "url": itm["url"]
+                            })
                     except: continue
         except: pass
 
 def save_all():
+    # 저장할 때도 가장 단순한 구조로 저장해서 충돌 방지
     data = {
-        "wishlist": st.session_state.wishlist, 
+        "wishlist": [{"url": i["url"]} for i in st.session_state.wishlist], 
         "collection": [{"url": i["url"]} for i in st.session_state.collection]
     }
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 4. 사이드바 (필수 기능) ---
+# --- 🏠 4. 사이드바 ---
 with st.sidebar:
     st.write(f"👤 **{st.session_state.user_id}** 님")
     if st.button("🚪 로그아웃", use_container_width=True):
@@ -81,8 +86,8 @@ st.title(f"📖 {st.session_state.user_id}의 서재")
 st.markdown(f'<div class="count-box"><div style="font-size:32px; font-weight:bold; color:#87CEEB;">✨ {len(st.session_state.collection)}권 읽음 ✨</div></div>', unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 6. 검색 (유령 박스 제거 + 장르 입력 제거) ---
-q = st.text_input("🔍 책 제목 검색", placeholder="예: 먼작귀", label_visibility="collapsed") 
+# --- 🔍 6. 검색 (정밀 필터 적용) ---
+q = st.text_input("🔍 책 제목 검색 (예: 먼작귀)", placeholder="검색어를 입력하세요", label_visibility="collapsed") 
 
 if q:
     try:
@@ -90,7 +95,7 @@ if q:
         res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
         res.encoding = 'utf-8'
         
-        # ✅ 진짜 책 이미지만 콕 집어내는 정규식
+        # ✅ 'cover'와 'product'가 명확히 포함된 진짜 이미지 주소만 추출 (빈 박스 방지)
         imgs = re.findall(r'src="(https://image\.aladin\.co\.kr/(?:product|pimg)/\d+/\d+/cover(?:200|500)[^"]+)"', res.text)
         imgs = list(dict.fromkeys(imgs))
 
@@ -120,19 +125,26 @@ tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시"])
 with tab1:
     if st.session_state.collection:
         del_m = st.toggle("삭제 모드")
-        cols = st.columns(5)
-        for i, itm in enumerate(st.session_state.collection):
-            with cols[i % 5]:
-                st.image(itm["img"], use_container_width=True)
-                if del_m and st.button("❌", key=f"d_{i}"):
-                    st.session_state.collection.pop(i); save_all(); st.rerun()
+        for i in range(0, len(st.session_state.collection), 5):
+            cols = st.columns(5)
+            for j in range(5):
+                idx = i + j
+                if idx < len(st.session_state.collection):
+                    itm = st.session_state.collection[idx]
+                    with cols[j]:
+                        st.image(itm["img"], use_container_width=True)
+                        if del_m and st.button("❌", key=f"d_{idx}"):
+                            st.session_state.collection.pop(idx); save_all(); st.rerun()
     else: st.info("기록이 없습니다.")
 
 with tab2:
     if st.session_state.wishlist:
-        cols = st.columns(5)
-        for i, itm in enumerate(st.session_state.wishlist):
-            with cols[i % 5]:
-                st.image(itm['url'], use_container_width=True)
-                if st.button("🗑️", key=f"wd_{i}"):
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
+        for i in range(0, len(st.session_state.wishlist), 5):
+            wcols = st.columns(5)
+            for j in range(5):
+                idx = i + j
+                if idx < len(st.session_state.wishlist):
+                    with wcols[j]:
+                        st.image(st.session_state.wishlist[idx]['url'], use_container_width=True)
+                        if st.button("🗑️", key=f"wd_{idx}"):
+                            st.session_state.wishlist.pop(idx); save_all(); st.rerun()
