@@ -14,8 +14,31 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 💾 데이터 관리 ---
-DATA_FILE = "my_reading_data.json"
+# --- 🔗 URL에서 사용자 이름 가져오기 ---
+query_params = st.query_params
+url_user = query_params.get("user", "")
+
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = url_user
+
+# --- 🔑 로그인/접속 화면 ---
+if not st.session_state.user_id:
+    st.title("📖 독서 기록 시작하기")
+    st.write("나만의 닉네임을 입력하면 고유한 저장 링크가 생깁니다.")
+    user_input = st.text_input("닉네임 입력 (예: 치이카와)", placeholder="영문, 숫자, 한글 모두 가능합니다.")
+    
+    if st.button("내 기록장 만들기/열기"):
+        if user_input:
+            st.query_params["user"] = user_input
+            st.session_state.user_id = user_input
+            st.rerun()
+        else:
+            st.warning("닉네임을 입력해주세요!")
+    st.stop()
+
+# 해당 사용자의 개별 데이터 파일
+USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
+
 if 'collection' not in st.session_state: st.session_state.collection = []
 if 'wishlist' not in st.session_state: st.session_state.wishlist = []
 
@@ -24,13 +47,13 @@ def save_all():
         "wishlist": st.session_state.wishlist,
         "col_urls": [item["url"] for item in st.session_state.collection]
     }
-    with open(DATA_FILE, "w", encoding="utf-8") as f:
+    with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 def load_all():
-    if os.path.exists(DATA_FILE):
+    if os.path.exists(USER_DATA_FILE):
         try:
-            with open(DATA_FILE, "r", encoding="utf-8") as f:
+            with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 st.session_state.wishlist = data.get("wishlist", [])
                 st.session_state.collection = []
@@ -45,162 +68,40 @@ def load_all():
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# --- 🎨 스타일 설정 (배경 제거 및 글자 크기 일치) ---
+# --- 🎨 스타일 설정 (정렬 및 투명 배경) ---
 st.markdown("""
     <style>
     .stCaption { display:none; }
-    
-    /* 1. 모든 버튼 및 텍스트 글자 크기 통일 (14px) */
-    div.stButton > button p,
-    div.stDownloadButton > button p,
-    div[data-testid="stMarkdownContainer"] p {
+    div.stButton > button p, div.stDownloadButton > button p, div[data-testid="stMarkdownContainer"] p {
         font-size: 14px !important;
-        white-space: nowrap !important;
     }
-    
-    /* 2. PDF 다운로드 버튼: 배경색 제거 및 투명화 */
     div.stDownloadButton > button {
-        width: 100%;
-        background-color: transparent !important;
-        color: #333333 !important;
-        border: 1px solid #ccc !important;
-        border-radius: 4px;
-        height: 38px !important; /* 토글 높이와 맞춤 */
+        width: 100%; background-color: transparent !important; color: #333333 !important;
+        border: 1px solid #ccc !important; border-radius: 4px; height: 38px !important;
     }
-    div.stDownloadButton > button:hover {
-        background-color: #f0f2f6 !important;
-    }
-
-    /* 3. 전체 비우기 버튼: 배경 투명 및 높이 조절 */
-    div.stButton > button {
-        height: 38px !important;
-        background-color: transparent !important;
-        border: 1px solid #ccc !important;
-    }
-
-    /* 4. 위시리스트 내부 버튼 최적화 */
-    div[data-testid="stHorizontalBlock"] .stButton button p {
-        font-size: 13px !important;
-    }
-
-    /* 5. 수직 정렬 맞춤 */
-    div[data-testid="column"] {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
+    div.stButton > button { height: 38px !important; background-color: transparent !important; border: 1px solid #ccc !important; }
+    div[data-testid="column"] { display: flex; align-items: center; justify-content: center; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📖 나의 독서 기록 관리")
+# 사이드바 설정
+with st.sidebar:
+    st.write(f"👤 접속 중: **{st.session_state.user_id}**")
+    if st.button("로그아웃 (다른 이름으로 접속)"):
+        st.query_params.clear()
+        st.session_state.user_id = ""
+        st.session_state.collection = []
+        st.session_state.wishlist = []
+        st.rerun()
 
-# --- 🔍 책 검색 섹션 ---
+# --- ✨ 요청하신 타이틀 변경 부분 ---
+# 입력한 닉네임에 따라 자동으로 제목이 바뀝니다.
+st.title(f"📖 {st.session_state.user_id}의 독서 기록")
+
+# --- 🔍 책 검색 엔진 ---
 query = st.text_input("책 제목을 입력하고 Enter!", placeholder="예: 해리포터")
 
 if query:
     search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}"
     try:
-        res = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-        imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+', res.text)
-        
-        if imgs:
-            cols = st.columns(4)
-            for i, img_url in enumerate(imgs[:8]):
-                with cols[i % 4]:
-                    st.image(img_url, use_container_width=True)
-                    c1, c2 = st.columns(2)
-                    if c1.button("📖 읽은 책", key=f"s_{i}"):
-                        r = requests.get(img_url)
-                        img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
-                        st.session_state.collection.append({"img": img_obj, "url": img_url})
-                        save_all()
-                        st.rerun()
-                    if c2.button("🩵 위시", key=f"w_{i}"):
-                        if not any(d['url'] == img_url for d in st.session_state.wishlist):
-                            st.session_state.wishlist.append({"url": img_url, "done": False})
-                            save_all()
-                            st.rerun()
-    except: st.error("검색 중 오류가 발생했습니다.")
-
-st.divider()
-left_col, right_col = st.columns(2)
-
-# --- 🖨️ 왼쪽: 읽은 책 모음 (한 줄 정렬 완료) ---
-with left_col:
-    st.header("📖 읽은 책 모음")
-    if st.session_state.collection:
-        # 버튼과 토글이 일직선이 되도록 컬럼 배치
-        btn_col1, btn_col2, btn_col3 = st.columns([1, 1.2, 1.3])
-        
-        with btn_col1:
-            if st.button("🗑️ 전체 비우기", use_container_width=True):
-                st.session_state.collection = []
-                save_all()
-                st.rerun()
-                
-        with btn_col2:
-            del_mode = st.toggle("개별 삭제 모드")
-            
-        with btn_col3:
-            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
-            x, y = 120, 120
-            for itm in st.session_state.collection:
-                img = itm['img']
-                ratio = TARGET_H_PX / float(img.size[1])
-                img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
-                if x + img_res.size[0] > A4_W_PX - 120:
-                    x = 120; y += TARGET_H_PX + 40
-                sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
-            
-            pdf_buf = io.BytesIO()
-            sheet.save(pdf_buf, format="PDF", resolution=300.0)
-            st.download_button(
-                label="📥 PDF 다운로드",
-                data=pdf_buf.getvalue(),
-                file_name="my_stickers.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-        
-        st.write("---")
-        if del_mode:
-            dcols = st.columns(4)
-            for idx, itm in enumerate(st.session_state.collection):
-                with dcols[idx % 4]:
-                    st.image(itm['img'], use_container_width=True)
-                    if st.button("❌ 삭제", key=f"del_{idx}"):
-                        st.session_state.collection.pop(idx)
-                        save_all()
-                        st.rerun()
-        else:
-            st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
-    else: st.info("읽은 책을 추가해 보세요!")
-
-# --- 📚 오른쪽: 위시리스트 ---
-with right_col:
-    st.header("🩵 위시리스트")
-    if st.session_state.wishlist:
-        wcols = st.columns(3)
-        for i, item in enumerate(st.session_state.wishlist):
-            with wcols[i % 3]:
-                with st.container(border=True):
-                    st.image(item['url'], use_container_width=True)
-                    ic1, ic2 = st.columns(2)
-                    
-                    btn_label = "✅ 완료" if item['done'] else "📖 선택"
-                    if ic1.button(btn_label, key=f"chk_{i}", use_container_width=True):
-                        new_status = not item['done']
-                        st.session_state.wishlist[i]['done'] = new_status
-                        if new_status:
-                            r = requests.get(item['url'])
-                            img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
-                            if not any(d['url'] == item['url'] for d in st.session_state.collection):
-                                st.session_state.collection.append({"img": img_obj, "url": item['url']})
-                        save_all()
-                        st.rerun()
-                        
-                    if ic2.button("🗑️ 삭제", key=f"del_w_{i}", use_container_width=True):
-                        st.session_state.wishlist.pop(i)
-                        save_all()
-                        st.rerun()
-    else: st.write("위시리스트가 비어있습니다.")
+        res = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=1
