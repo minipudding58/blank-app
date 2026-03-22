@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 import calendar
 
-# --- 📏 규격 및 설정 ---
+# --- 기초 규격 설정 ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI)
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🔗 세션 및 로그인 ---
+# --- 🔗 닉네임 로그인 시스템 ---
 if 'user_id' not in st.session_state:
     st.session_state.user_id = st.query_params.get("user", "")
 
@@ -31,11 +31,13 @@ if not st.session_state.user_id:
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 💾 데이터 관리 (복구 완료) ---
+# --- 🛠️ 에러 해결 핵심: 세션 초기화 ---
 if 'collection' not in st.session_state:
-    st.session_state.collection = []; st.session_state.wishlist = []
-    if 'cal_year' not in st.session_state: st.session_state.cal_year = date.today().year
-    if 'cal_month' not in st.session_state: st.session_state.cal_month = date.today().month
+    st.session_state.collection = []
+    st.session_state.wishlist = []
+    # 달력 변수가 없으면 여기서 미리 만들어줍니다 (에러 방지)
+    st.session_state.cal_year = date.today().year
+    st.session_state.cal_month = date.today().month
     
     if os.path.exists(USER_DATA_FILE):
         try:
@@ -59,13 +61,12 @@ def save_all():
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 사이드바 (문구 수정) ---
+# --- 🏠 사이드바 (문구 변경 반영) ---
 with st.sidebar:
     st.write(f"👤 **{st.session_state.user_id}** 님")
     if st.button("🚪 로그아웃", use_container_width=True):
         st.query_params.clear(); st.session_state.clear(); st.rerun()
     st.write("---")
-    # 요청하신 대로 '🔥 데이터 삭제'로 변경
     if st.button("🔥 데이터 삭제", use_container_width=True):
         if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
         st.query_params.clear(); st.session_state.clear(); st.rerun()
@@ -80,31 +81,33 @@ with t_col1:
 
 with t_col2:
     mc1, mc2, mc3 = st.columns([1, 2, 1])
-    if mc1.button("◀", key="p_m"):
+    if mc1.button("◀ 이전 달"):
         if st.session_state.cal_month == 1: st.session_state.cal_month = 12; st.session_state.cal_year -= 1
         else: st.session_state.cal_month -= 1
         st.rerun()
+    # 에러가 나던 부분: 이제 안전하게 값을 읽어옵니다
     mc2.markdown(f"<h3 style='text-align:center;'>{st.session_state.cal_year}년 {st.session_state.cal_month}월</h3>", unsafe_allow_html=True)
-    if mc3.button("▶", key="n_m"):
+    if mc3.button("다음 달 ▶"):
         if st.session_state.cal_month == 12: st.session_state.cal_month = 1; st.session_state.cal_year += 1
         else: st.session_state.cal_month += 1
         st.rerun()
     
     cal = calendar.monthcalendar(st.session_state.cal_year, st.session_state.cal_month)
-    cols = st.columns(7)
-    for i, dname in enumerate(["일", "월", "화", "수", "목", "금", "토"]): cols[i].caption(dname)
+    w_cols = st.columns(7)
+    for i, dname in enumerate(["일", "월", "화", "수", "목", "금", "토"]): w_cols[i].caption(dname)
     for week in cal:
-        w_cols = st.columns(7)
+        cols = st.columns(7)
         for i, day in enumerate(week):
             if day != 0:
                 curr = date(st.session_state.cal_year, st.session_state.cal_month, day).isoformat()
-                with w_cols[i]:
+                with cols[i]:
                     st.write(f"**{day}**")
                     for b in st.session_state.collection:
                         if b["start"] <= curr <= b["end"]: st.image(b["url"], use_container_width=True)
 
+st.divider()
+
 # --- 🔍 검색 및 등록 ---
-st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 query = st.text_input("책 제목 입력", placeholder="예: 먼작귀")
 if query:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}", headers={"User-Agent":"Mozilla/5.0"})
@@ -116,11 +119,11 @@ if query:
                 st.image(url, use_container_width=True)
                 dr = st.date_input("읽은 기간", [date.today(), date.today()], key=f"dr_{i}")
                 c1, c2 = st.columns(2)
-                if c1.button("📖 읽음", key=f"r_{i}"):
+                if c1.button("📖 읽음", key=f"r_{i}", use_container_width=True):
                     st.session_state.collection.append({"img": Image.open(io.BytesIO(requests.get(url).content)).convert("RGB"), "url": url, "start": dr[0].isoformat(), "end": dr[1].isoformat() if len(dr)>1 else dr[0].isoformat()})
                     save_all(); st.rerun()
-                if c2.button("🩵 위시", key=f"w_{i}"):
-                    st.session_state.wishlist.append({"url": url, "done": False}); save_all(); st.rerun()
+                if c2.button("🩵 위시", key=f"w_{i}", use_container_width=True):
+                    st.session_state.wishlist.append({"url": url}); save_all(); st.rerun()
 
 st.divider()
 
@@ -133,7 +136,7 @@ with l_col:
         if b1.button("🗑️ 비우기"): st.session_state.collection = []; save_all(); st.rerun()
         del_m = b2.toggle("개별 삭제")
         
-        # PDF 생성 로직
+        # PDF 생성
         sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
         x, y = 100, 100
         for itm in st.session_state.collection:
@@ -144,7 +147,7 @@ with l_col:
             sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
         
         pdf_buf = io.BytesIO(); sheet.save(pdf_buf, format="PDF", resolution=300.0)
-        b3.download_button("📥 PDF 다운로드", pdf_buf.getvalue(), "books.pdf", "application/pdf")
+        b3.download_button("📥 PDF 다운로드", pdf_buf.getvalue(), "books.pdf", "application/pdf", use_container_width=True)
         
         dcols = st.columns(3)
         for idx, itm in enumerate(st.session_state.collection):
@@ -152,7 +155,6 @@ with l_col:
                 st.image(itm["img"], use_container_width=True)
                 if del_m and st.button("❌", key=f"dc_{idx}"): st.session_state.collection.pop(idx); save_all(); st.rerun()
 
-# --- 🩵 위시리스트 (✅ 선택 버튼 복구 완료) ---
 with r_col:
     st.header("🩵 위시리스트")
     if st.session_state.wishlist:
@@ -161,9 +163,9 @@ with r_col:
             with wcols[i % 3]:
                 st.image(item['url'], use_container_width=True)
                 wc1, wc2 = st.columns(2)
-                # ✅ 선택 버튼: 누르면 읽은 책으로 이동
-                if wc1.button("✅ 선택", key=f"sel_{i}"):
+                # ✅ 선택 버튼 복구: 누르면 읽은 책으로 이동
+                if wc1.button("✅ 선택", key=f"sel_{i}", use_container_width=True):
                     r = requests.get(item['url'])
                     st.session_state.collection.append({"img": Image.open(io.BytesIO(r.content)).convert("RGB"), "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat()})
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
-                if wc2.button("🗑️", key=f"dw_{i}"): st.session_state.wishlist.pop(i); save_all(); st.rerun()
+                if wc2.button("🗑️", key=f"dw_{i}", use_container_width=True): st.session_state.wishlist.pop(i); save_all(); st.rerun()
