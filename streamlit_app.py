@@ -4,7 +4,7 @@ from PIL import Image
 import io
 import time
 
-# 📏 인쇄 설정 (세로 4cm 규격)
+# 📏 인쇄 규격 설정 (세로 4cm 기준)
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI)
 
@@ -16,7 +16,7 @@ if 'collection' not in st.session_state:
 if 'wishlist' not in st.session_state:
     st.session_state.wishlist = []
 
-# --- 🎨 UI 전면 개편: 이분할 레이아웃 ---
+# --- 🎨 UI 전면 개편: 1:1 이분할 레이아웃 ---
 st.title("📖 나의 독서 기록 관리")
 st.write("표지를 골라 **읽은 책 모음**을 만들거나, **읽고 싶은 책**을 위시리스트에 담으세요.")
 
@@ -45,9 +45,13 @@ def get_aladdin_refined(search_query):
                 title_start = part.find('class="bo3"><b>') + 15
                 title_end = part.find('</b>', title_start)
                 raw_title = part[title_start:title_end]
+                
                 # 💡 HTML 태그() 제거
                 clean_title = raw_title.replace("<b>", "").replace("</b>", "").strip()
                 
+                # 가끔 제목 뒤에 나오는 불필요한 공백/코드 제거
+                if '>' in clean_title: clean_title = clean_title.split('>')[1].strip()
+
                 if img_start != -1:
                     results.append({"title": clean_title, "url": img_url})
             except:
@@ -64,18 +68,19 @@ if query:
             st.warning("결과가 없습니다.")
         else:
             st.subheader(f"📍 '{query}' 검색 결과")
-            cols = st.columns(5)
+            # 💡 지저분한 코드() 제거 확인을 위해 한 줄에 4개씩 깔끔하게 배치
+            cols = st.columns(4)
             for idx, book in enumerate(books):
-                with cols[idx % 5]:
+                with cols[idx % 4]:
                     try:
                         img_res = requests.get(book['url'], timeout=5)
                         img = Image.open(io.BytesIO(img_res.content)).convert("RGB")
                         
                         st.image(img, use_container_width=True)
                         # 제목 출력 (이미지 밑에 코드 없이 깔끔하게)
-                        st.caption(book['title'][:20] + '..' if len(book['title']) > 20 else book['title'])
+                        st.caption(book['title'][:25] + '..' if len(book['title']) > 25 else book['title'])
                         
-                        # 💡 버튼 배치 수정: 이분할 화면에 맞춰 깔끔하게
+                        # 버튼 배치: 이분할 화면에 맞춰 깔끔하게
                         b1, b2 = st.columns(2)
                         with b1:
                             if st.button("🖼️ 스티커", key=f"sticker_{idx}"):
@@ -90,11 +95,11 @@ if query:
                     except:
                         continue
 
-# --- 🎨 요청 반영: 이분할 레이아웃 배치 ---
+# --- 🎨 요청 반영: 1:1 이분할 레이아웃 배치 ---
 st.divider()
-left_col, right_col = st.columns([2, 1])
+# 💡 공간 비율을 1:1로 수정
+left_col, right_col = st.columns([1, 1])
 
-# 요청 2: '읽은 책 모음'으로 변경
 with left_col:
     st.header("🖨️ 읽은 책 모음 (인쇄용 A4)")
     st.write(f"현재 총 **{len(st.session_state.collection)}개** 담김")
@@ -132,13 +137,12 @@ with left_col:
     else:
         st.info("검색 결과에서 표지를 선택하면 여기에 A4 인쇄판이 생성됩니다.")
 
-# 요청 2: 이분할 화면의 오른쪽 배치
 with right_col:
     st.header("📚 읽고 싶은 책 (위시리스트)")
     if not st.session_state.wishlist:
         st.info("나중에 읽고 싶은 책을 위시리스트에 담아보세요!")
     else:
-        # 요청 3: 코드() 대신 깔끔한 제목 목록으로 수정
+        # 💡 위시리스트 코드() 대신 깔끔한 제목 목록으로 수정
         for i, wish_title in enumerate(st.session_state.wishlist):
             c1, c2 = st.columns([4, 1])
             # 💡 지저분한 HTML 코드 없이 실제 제목만 출력
