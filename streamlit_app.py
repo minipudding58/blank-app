@@ -93,38 +93,53 @@ with c2:
 
 st.divider()
 
-# --- 🔍 6. 책 검색 (물리적 중앙 배치 및 검색 복구) ---
+# --- 🔍 6. 책 검색 (물리적 중앙 배치 및 검색 결과 출력 복구) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visibility="collapsed") 
 
 if q:
     try:
-        res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
+        search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}"
+        res = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}).text
+        
+        # 검색 결과 테이블 파싱
         items = re.findall(r'<table.*?>(.*?)</table>', res, re.DOTALL)
+        
         if items:
-            for item_html in items[:4]:
+            valid_count = 0
+            for item_html in items:
+                if valid_count >= 4: break # 최대 4개 표시
+                
                 img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-                # ✅ 장르 추출 정규식 강화
                 genre_matches = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
                 
                 if img_match:
                     url = img_match.group()
                     found_genre = genre_matches[-1] if genre_matches else "미지정"
                     
-                    # ✅ 물리적 중앙 배치 (1:1.5:1)
+                    # ✅ 물리적 중앙 정렬 배치
                     sp_l, center, sp_r = st.columns([1, 1.5, 1])
                     with center:
                         st.image(url)
-                        sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{url}", label_visibility="collapsed")
+                        sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{url}_{valid_count}", label_visibility="collapsed")
                         b1, b2 = st.columns(2)
-                        if b1.button("📖 읽음", key=f"r_{url}", use_container_width=True):
+                        if b1.button("📖 읽음", key=f"r_{url}_{valid_count}", use_container_width=True):
                             img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                            st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
+                            st.session_state.collection.append({
+                                "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
+                                "url": url, 
+                                "start": date.today().isoformat(), 
+                                "end": date.today().isoformat(), 
+                                "genre": sel_genre
+                            })
                             save_all(); st.rerun()
-                        if b2.button("🩵 위시", key=f"w_{url}", use_container_width=True):
-                            st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
-                    st.divider() 
-    except: pass
+                        if b2.button("🩵 위시", key=f"w_{url}_{valid_count}", use_container_width=True):
+                            st.session_state.wishlist.append({"url": url, "genre": sel_genre})
+                            save_all(); st.rerun()
+                    st.divider()
+                    valid_count += 1
+    except Exception as e:
+        st.error(f"검색 중 오류 발생: {e}")
 
 # --- 📚 7. 목록 및 삭제 (기능 복구) ---
 l_col, r_col = st.columns(2)
@@ -148,9 +163,10 @@ with r_col:
         for idx, itm in enumerate(st.session_state.wishlist):
             with wcols[idx % 3]:
                 try:
-                    w_img = requests.get(itm['url'], headers={"User-Agent": "Mozilla/5.0"}).content
-                    st.image(Image.open(io.BytesIO(w_img)), use_container_width=True)
-                    st.caption(f"{itm.get('genre', '미지정')}")
-                    if wish_del and st.button("🗑️ 삭제", key=f"dw_{idx}", use_container_width=True):
-                        st.session_state.wishlist.pop(idx); save_all(); st.rerun()
+                    w_img_res = requests.get(itm['url'], headers={"User-Agent": "Mozilla/5.0"})
+                    if w_img_res.status_code == 200:
+                        st.image(Image.open(io.BytesIO(w_img_res.content)), use_container_width=True)
+                        st.caption(f"{itm.get('genre', '미지정')}")
+                        if wish_del and st.button("🗑️ 삭제", key=f"dw_{idx}", use_container_width=True):
+                            st.session_state.wishlist.pop(idx); save_all(); st.rerun()
                 except: pass
