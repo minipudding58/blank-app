@@ -108,7 +108,7 @@ if q:
         if items:
             valid_count = 0
             for item_html in items:
-                if valid_count >= 4: break # 최대 4개 표시
+                if valid_count >= 4: break # 상위 4개만 표시
                 
                 img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
                 genre_matches = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
@@ -117,7 +117,7 @@ if q:
                     url = img_match.group()
                     found_genre = genre_matches[-1] if genre_matches else "미지정"
                     
-                    # ✅ 물리적 중앙 정렬 배치
+                    # ✅ 물리적 중앙 정렬 배치 (1:1.5:1 비율)
                     sp_l, center, sp_r = st.columns([1, 1.5, 1])
                     with center:
                         st.image(url)
