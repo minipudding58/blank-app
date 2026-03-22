@@ -15,7 +15,7 @@ TARGET_H_PX = 180
 # --- 🎨 2. [UI] CSS 스타일 (사용자 요청 레이아웃 100% 반영) ---
 st.markdown(f"""
     <style>
-    /* 입력창 및 텍스트 정렬 */
+    /* 입력창 디자인 및 좌측 정렬 */
     .stTextInput {{ text-align: left !important; }}
     div[data-baseweb="input"], input {{ 
         text-align: left !important; 
@@ -24,7 +24,7 @@ st.markdown(f"""
         border-radius: 10px !important;
     }}
 
-    /* ✅ 검색 결과 카드: 회색 배경 + 이미지 중앙 정렬 (image_f64a5b.png 반영) */
+    /* ✅ 검색 결과 카드: 회색 배경 + 이미지 중앙 정렬 (image_f64a5b.png) */
     .search-card {{
         background-color: #f8f9fb;
         border-radius: 15px;
@@ -38,7 +38,7 @@ st.markdown(f"""
         width: 100%;
     }}
 
-    /* 이미지 중앙 정렬 및 크기 고정 */
+    /* 이미지 크기 및 중앙 정렬 고정 */
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: auto !important;
@@ -47,7 +47,7 @@ st.markdown(f"""
         display: block !important;
     }}
     
-    /* ✅ '분야' 라벨 및 입력창 좌측 정렬 (image_f655da.png 반영) */
+    /* ✅ '분야' 라벨 좌측 정렬 (image_f655da.png) */
     .field-left {{ 
         width: 100%; 
         text-align: left !important; 
@@ -58,19 +58,18 @@ st.markdown(f"""
         margin-bottom: 5px;
     }}
 
-    /* 제목 없음 투명화 (내부 데이터용) */
+    /* 제목 없음 투명화 */
     .no-title-text {{
         color: rgba(0,0,0,0) !important;
         font-size: 0px !important;
         line-height: 0px !important;
         user-select: none;
     }}
-
-    /* 상단 대시보드 스타일 */
-    .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; min-height: 150px; display: flex; flex-direction: column; justify-content: center; }}
-    .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); min-width: 90px; margin: 5px; }}
+    
+    .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; display: flex; flex-direction: column; justify-content: center; }}
+    .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 15px; text-align: center; min-width: 90px; margin: 5px; }}
     .genre-container {{ display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: center; }}
-    .genre-subtitle {{ font-size: 20px !important; font-weight: 800 !important; color: #333; margin: 35px 0 15px 0; border-bottom: 3px solid #87CEEB; padding-bottom: 5px; width: 100%; text-align: left !important; }}
+    .genre-subtitle {{ font-size: 20px !important; font-weight: 800 !important; border-bottom: 3px solid #87CEEB; padding-bottom: 5px; width: 100%; text-align: left !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -111,55 +110,53 @@ def save_all():
 
 # --- 🏠 4. 상단 대시보드 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-st.markdown("<br>", unsafe_allow_html=True) 
-
 dash_col1, dash_col2 = st.columns([1, 3.5])
 with dash_col1:
-    st.markdown(f'<div class="count-box"><div style="font-size:14px; color:#666; margin-bottom:5px;">{datetime.now().year}년 누적</div><div style="font-size:38px; font-weight:bold; color:#87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="count-box"><div style="font-size:14px; color:#666;">{datetime.now().year}년 누적</div><div style="font-size:38px; font-weight:bold; color:#87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>', unsafe_allow_html=True)
 with dash_col2:
     if st.session_state.collection:
-        st.markdown("<div style='font-size: 15px; color: #555; font-weight: 700; margin-bottom: 5px;'>분야별(장르별) 통계</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 15px; font-weight: 700;'>분야별(장르별) 통계</div>", unsafe_allow_html=True)
         counts = Counter([itm.get("genre", "미정") for itm in st.session_state.collection])
         genre_items_html = "".join([f"<div class='genre-card'><b>{g}</b><br><span style='color:#666;'>{c}권</span></div>" for g, c in counts.items()])
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (범용 파싱 로직 + 4분할 수평 나열) ---
+# --- 🔍 5. 검색 섹션 (강력한 범용 파싱 엔진) ---
 st.markdown("### 🔍 책 검색")
-q = st.text_input("검색창", placeholder="책 제목이나 저자를 입력하세요...", label_visibility="collapsed") 
+q = st.text_input("검색창", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
 if q:
     try:
         search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}"
         res_text = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}).text
         
-        # ✅ 범용 로직: 모든 테이블 중 이미지가 포함된 것을 찾아 책 정보 추출
-        # 알라딘 검색 결과의 모든 테이블을 긁어옵니다.
-        tables = re.findall(r'<table.*?>(.*?)</table>', res_text, re.DOTALL)
+        # ✅ 가장 강력한 방식: 검색 결과의 모든 서적 테이블(`ss_book_table`)을 직접 파싱
+        book_blocks = re.findall(r'<table[^>]*class="ss_book_table"[^>]*>.*?</table>', res_text, re.DOTALL)
         
+        # 만약 위 패턴으로 안 잡힐 경우를 대비한 백업 패턴
+        if not book_blocks:
+            book_blocks = re.findall(r'<table width="100%" border="0" cellspacing="0" cellpadding="0">.*?</table>', res_text, re.DOTALL)
+
         valid_books = []
         seen_urls = set()
 
-        for t_html in tables:
-            # 1. 이미지 URL 추출 (표준 커버 이미지 패턴)
-            img_match = re.search(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', t_html)
-            # 2. 제목 추출 (bo3 클래스)
-            title_match = re.search(r'class="bo3"><b>(.*?)</b>', t_html)
-            # 3. 장르 추출 (대괄호 안의 링크 텍스트)
-            genre_match = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', t_html)
+        for block in book_blocks:
+            img_m = re.search(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', block)
+            title_m = re.search(r'class="bo3"><b>(.*?)</b>', block)
+            genre_m = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', block)
 
-            if img_match and title_match:
-                img_url = img_match.group(1)
+            if img_m and title_m:
+                img_url = img_m.group(1)
                 if img_url not in seen_urls:
                     valid_books.append({
                         "url": img_url,
-                        "title": title_match.group(1),
-                        "genre": genre_match[-1] if genre_match else "미정"
+                        "title": title_m.group(1),
+                        "genre": genre_m[-1] if genre_m else "미정"
                     })
                     seen_urls.add(img_url)
 
         if valid_books:
-            # ✅ 가로로 4개씩 수평 나열 (사용자 요청 image_f66125.png 완벽 반영)
+            # ✅ 가로로 4개씩 수평 나열 (image_f66125.png)
             for i in range(0, min(12, len(valid_books)), 4): 
                 row_cols = st.columns(4)
                 for j in range(4):
@@ -168,14 +165,11 @@ if q:
                     book = valid_books[idx]
                     
                     with row_cols[j]:
-                        # 회색 배경 카드 + 이미지 중앙 정렬 (image_f64a5b.png)
                         st.markdown(f'<div class="search-card">', unsafe_allow_html=True)
                         st.image(book["url"])
                         st.markdown('</div>', unsafe_allow_html=True)
                         
                         st.markdown(f"<div class='no-title-text'>{book['title']}</div>", unsafe_allow_html=True)
-                        
-                        # ✅ '분야' 라벨 및 입력창 좌측 정렬 (image_f655da.png)
                         st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
                         sel_genre = st.text_input("분야수정", value=book["genre"], label_visibility="collapsed", key=f"s_gen_{idx}")
                         
@@ -198,9 +192,9 @@ if q:
         else:
             st.info("검색 결과가 없습니다. 제목을 정확히 입력해주세요.")
     except Exception as e:
-        st.error(f"검색 연결 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
+        st.error("알라딘 서버 연결에 실패했습니다. 잠시 후 다시 검색해주세요.")
 
-# --- 📚 6. 하단 목록 (내 서재 / 위시리스트) ---
+# --- 📚 6. 하단 목록 ---
 st.divider()
 tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab1:
