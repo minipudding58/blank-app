@@ -90,7 +90,7 @@ def save_all():
 # --- [최상단] 타이틀 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 
-# ✅ 요청하신 공백 두 칸 추가
+# ✅ 요청하신 공백 두 칸
 st.write("")
 st.write("")
 
@@ -110,7 +110,7 @@ with t_col2:
     if st.session_state.collection:
         counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
         genre_items = "".join([f"<div class='genre-card'><div class='genre-label'>{g}</div><div class='genre-value'>{c}권</div></div>" for g, c in counts.items()])
-        st.markdown(f<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
     else:
         st.caption("기록이 없습니다.")
 
@@ -129,7 +129,9 @@ if q:
             with scols[i]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
+                # 장르 입력칸 (이미지 높이가 고정되어 열이 맞춰짐)
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
+                # 버튼 레이아웃
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
