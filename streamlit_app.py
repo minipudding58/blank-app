@@ -45,52 +45,49 @@ def load_all():
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# --- 🎨 스타일 설정 (버튼 글자 크기 및 수평 정렬 최적화) ---
-# 💡 핵심: 모든 버튼의 글자 크기를 Streamlit 기본 텍스트 크기(14px)로 통일하고 높이를 맞춥니다.
+# --- 🎨 스타일 설정 (배경 제거 및 글자 크기 일치) ---
 st.markdown("""
     <style>
     .stCaption { display:none; }
     
-    /* 1. 모든 버튼 글자 크기 통일 (14px) */
+    /* 1. 모든 버튼 및 텍스트 글자 크기 통일 (14px) */
     div.stButton > button p,
-    div.stDownloadButton > button p {
+    div.stDownloadButton > button p,
+    div[data-testid="stMarkdownContainer"] p {
         font-size: 14px !important;
         white-space: nowrap !important;
     }
     
-    /* 2. PDF 다운로드 버튼 커스텀 (배경색 투명화 & 글자 크기 맞춤) */
+    /* 2. PDF 다운로드 버튼: 배경색 제거 및 투명화 */
     div.stDownloadButton > button {
         width: 100%;
-        background-color: transparent !important; /* 배경색 제거 */
+        background-color: transparent !important;
         color: #333333 !important;
-        font-weight: 500;
-        border: 1px solid #ddd; /* 테두리는 유지하여 버튼임을 표시 */
-        border-radius: 8px;
-        padding: 0.25rem 0.5rem !important; /* 높이 조절 */
+        border: 1px solid #ccc !important;
+        border-radius: 4px;
+        height: 38px !important; /* 토글 높이와 맞춤 */
     }
     div.stDownloadButton > button:hover {
-        background-color: #fafafa !important;
-        border: 1px solid #ccc;
+        background-color: #f0f2f6 !important;
     }
 
-    /* 3. 전체 비우기 버튼 커스텀 (글자 크기 맞춤) */
-    div.stButton > button#all-clear-btn {
-        width: 100%;
+    /* 3. 전체 비우기 버튼: 배경 투명 및 높이 조절 */
+    div.stButton > button {
+        height: 38px !important;
         background-color: transparent !important;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 0.25rem 0.5rem !important; /* 높이 조절 */
+        border: 1px solid #ccc !important;
     }
 
-    /* 4. 위시리스트 버튼 줄바꿈 방지 */
-    div[data-testid="stHorizontalBlock"] button p {
+    /* 4. 위시리스트 내부 버튼 최적화 */
+    div[data-testid="stHorizontalBlock"] .stButton button p {
         font-size: 13px !important;
-        white-space: nowrap !important;
     }
-    
-    /* 5. 버튼 레이아웃 컬럼 정렬 (시각적 일체감) */
-    [data-testid="stHorizontalBlock"] > div {
-        align-items: center; /* 수직 가운데 정렬 */
+
+    /* 5. 수직 정렬 맞춤 */
+    div[data-testid="column"] {
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -128,26 +125,20 @@ if query:
 st.divider()
 left_col, right_col = st.columns(2)
 
-# --- 🖨️ 왼쪽: 읽은 책 모음 (정렬 수정 완료) ---
+# --- 🖨️ 왼쪽: 읽은 책 모음 (한 줄 정렬 완료) ---
 with left_col:
     st.header("📖 읽은 책 모음")
     if st.session_state.collection:
-        # 💡 정렬 최적화: 컬럼 비율 조정 및 정렬 스크립트 추가
-        # 'use_container_width'를 적극 활용하여 정렬을 맞춥니다.
-        st.markdown('<div id="books-control-row">', unsafe_allow_html=True)
-        btn_col1, btn_col2, btn_col3 = st.columns([1.1, 1.2, 1.3])
+        # 버튼과 토글이 일직선이 되도록 컬럼 배치
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1.2, 1.3])
         
         with btn_col1:
-            # CSS에서 아이디 기반으로 스타일을 적용하기 위해 key 값을 설정
-            if st.button("🗑️ 전체 비우기", key="all-clear-btn", use_container_width=True):
+            if st.button("🗑️ 전체 비우기", use_container_width=True):
                 st.session_state.collection = []
                 save_all()
                 st.rerun()
                 
         with btn_col2:
-            # 💡 텍스트와 높이를 맞추기 위해 여백 추가
-            st.write("") 
-            st.write("") 
             del_mode = st.toggle("개별 삭제 모드")
             
         with btn_col3:
@@ -168,9 +159,8 @@ with left_col:
                 data=pdf_buf.getvalue(),
                 file_name="my_stickers.pdf",
                 mime="application/pdf",
-                use_container_width=True # 줄바꿈 방지 및 정렬 맞춤
+                use_container_width=True
             )
-        st.markdown('</div>', unsafe_allow_html=True)
         
         st.write("---")
         if del_mode:
