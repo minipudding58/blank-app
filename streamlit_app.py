@@ -6,12 +6,13 @@ import re
 import json
 import os
 from datetime import datetime, date
+from collections import Counter, defaultdict
 
 # --- ⚙️ 1. 기본 설정 ---
 st.set_page_config(page_title="나의 독서 기록장", page_icon="📖", layout="wide")
 TARGET_H_PX = 180
 
-# --- 🎨 2. [UI] CSS 스타일 (원본 레이아웃 유지) ---
+# --- 🎨 2. [UI] CSS 스타일 ---
 st.markdown(f"""
     <style>
     .stTextInput {{ text-align: left !important; }}
@@ -28,11 +29,14 @@ st.markdown(f"""
         height: {TARGET_H_PX}px !important; width: auto !important;
         object-fit: contain !important; margin: 0 auto !important; display: block !important;
     }}
-    .no-title-text {{
-        color: rgba(0,0,0,0) !important; font-size: 0px !important;
-        line-height: 0px !important; user-select: none;
+    .field-left {{ 
+        width: 100%; text-align: left !important; font-size: 14px; 
+        color: #444; font-weight: 600; margin-top: 15px; margin-bottom: 5px;
     }}
     .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; display: flex; flex-direction: column; justify-content: center; }}
+    .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 10px; text-align: center; min-width: 80px; margin: 5px; }}
+    .genre-container {{ display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: center; }}
+    .genre-subtitle {{ font-size: 18px !important; font-weight: 800 !important; border-bottom: 3px solid #87CEEB; padding-bottom: 5px; width: 100%; text-align: left !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -61,24 +65,46 @@ if 'collection' not in st.session_state:
                     if r.status_code == 200:
                         st.session_state.collection.append({
                             "img": Image.open(io.BytesIO(r.content)).convert("RGB"), 
-                            "url": itm["url"]
+                            "url": itm["url"], "genre": itm.get("genre", "미정")
                         })
         except: pass
 
 def save_all():
     data = {
         "wishlist": st.session_state.wishlist, 
-        "collection": [{"url": i["url"]} for i in st.session_state.collection]
+        "collection": [{"url": i["url"], "genre": i.get("genre", "미정")} for i in st.session_state.collection]
     }
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 4. 상단 대시보드 ---
+# --- 🏠 4. 사이드바 ---
+with st.sidebar:
+    st.write(f"👤 접속 중: **{st.session_state.user_id}**")
+    if st.button("🚪 로그아웃", use_container_width=True):
+        st.query_params.clear()
+        for key in list(st.session_state.keys()): del st.session_state[key]
+        st.rerun()
+    st.write("---")
+    if st.button("🔥 내 기록 전체 삭제", use_container_width=True):
+        if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
+        st.query_params.clear()
+        for key in list(st.session_state.keys()): del st.session_state[key]
+        st.rerun()
+
+# --- 🏠 5. 상단 대시보드 (통계 유지) ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-st.markdown(f'<div class="count-box"><div style="font-size:14px; color:#666;">누적 기록</div><div style="font-size:38px; font-weight:bold; color:#87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>', unsafe_allow_html=True)
+dash_col1, dash_col2 = st.columns([1, 3.5])
+with dash_col1:
+    st.markdown(f'<div class="count-box"><div style="font-size:14px; color:#666;">누적 기록</div><div style="font-size:38px; font-weight:bold; color:#87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>', unsafe_allow_html=True)
+with dash_col2:
+    if st.session_state.collection:
+        st.markdown("<div style='font-size:15px; font-weight:700;'>분야별 통계</div>", unsafe_allow_html=True)
+        counts = Counter([itm.get("genre", "미정") for itm in st.session_state.collection])
+        genre_items_html = "".join([f"<div class='genre-card'><b>{g}</b><br><span style='color:#666;'>{c}권</span></div>" for g, c in counts.items()])
+        st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (장르 제외, 이미지 중심) ---
+# --- 🔍 6. 검색 섹션 (이미지 중심 검색) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색어 입력", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
@@ -90,9 +116,8 @@ if q:
         res.encoding = 'utf-8'
         html = res.text
         
-        # 장르/제목 매칭 없이 'cover' 이미지만 추출 (가장 확실한 방법)
+        # 이미지 위주로 빠르게 추출
         imgs = re.findall(r'src="(https://image\.aladin\.co\.kr/[^"]+cover[^"]+)"', html)
-        # 중복 제거
         imgs = list(dict.fromkeys(imgs))
 
         if imgs:
@@ -106,46 +131,39 @@ if q:
                             st.markdown('<div class="search-card">', unsafe_allow_html=True)
                             st.image(img_url)
                             st.markdown('</div>', unsafe_allow_html=True)
+                            st.markdown("<div class='field-left'>분야(장르) 입력</div>", unsafe_allow_html=True)
+                            g_input = st.text_input("장르입력", value="미정", label_visibility="collapsed", key=f"s_gen_{idx}")
                             
                             b_r, b_w = st.columns(2)
                             if b_r.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
                                 r = requests.get(img_url)
                                 img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
-                                st.session_state.collection.append({"img": img_obj, "url": img_url})
+                                st.session_state.collection.append({"img": img_obj, "url": img_url, "genre": g_input})
                                 save_all(); st.rerun()
                             if b_w.button("🩵 위시", key=f"s_bw_{idx}", use_container_width=True):
-                                st.session_state.wishlist.append({"url": img_url})
+                                st.session_state.wishlist.append({"url": img_url, "genre": g_input})
                                 save_all(); st.rerun()
         else:
-            st.warning("검색 결과 이미지를 찾을 수 없습니다.")
+            st.warning("결과를 찾을 수 없습니다.")
     except Exception as e:
-        st.error(f"검색 중 오류 발생: {e}")
+        st.error(f"오류: {e}")
 
-# --- 📚 6. 내 서재 목록 ---
+# --- 📚 7. 내 서재 목록 ---
 st.divider()
 tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab1:
     if st.session_state.collection:
         edit_mode = st.toggle("삭제 모드 활성화")
-        k = 0
-        for i in range(0, len(st.session_state.collection), 5):
-            cols = st.columns(5)
-            for j in range(5):
-                idx = i + j
-                if idx < len(st.session_state.collection):
-                    itm = st.session_state.collection[idx]
-                    with cols[j]:
+        grouped = defaultdict(list)
+        for idx, itm in enumerate(st.session_state.collection):
+            grouped[itm.get('genre', '미정')].append((idx, itm))
+        
+        for g_name, g_items in grouped.items():
+            st.markdown(f"<div class='genre-subtitle'>{g_name}</div>", unsafe_allow_html=True)
+            for k in range(0, len(g_items), 5):
+                cols = st.columns(5)
+                for c_idx, (orig_idx, itm) in enumerate(g_items[k:k+5]):
+                    with cols[c_idx]:
                         st.image(itm["img"], use_container_width=True)
-                        if edit_mode and st.button("❌", key=f"del_{idx}"):
-                            st.session_state.collection.pop(idx); save_all(); st.rerun()
-    else:
-        st.info("아직 기록된 책이 없습니다.")
-
-with tab2:
-    if st.session_state.wishlist:
-        wcols = st.columns(5)
-        for i, item in enumerate(st.session_state.wishlist):
-            with wcols[i % 5]:
-                st.image(item['url'], use_container_width=True)
-                if st.button("🗑️", key=f"wd_{i}"):
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
+                        if edit_mode and st.button("❌", key=f"del_{orig_idx}"):
+                            st.session_state.collection.pop(orig_idx); save_all(); st.rerun()
