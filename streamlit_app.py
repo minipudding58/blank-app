@@ -12,18 +12,14 @@ from collections import Counter
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 TARGET_H_PX = 200 
 
-# --- 🎨 2. [UI] 스타일 (이미지 중앙 정렬 및 검색창 좌측 정렬) ---
+# --- 🎨 2. [UI] 스타일 (검색창 좌측 정렬 및 중앙 정렬 제어) ---
 st.markdown(f"""
     <style>
-    /* ✅ 지시 1: 검색창은 좌측 정렬 */
+    /* ✅ 검색창 좌측 정렬 고정 */
     .stTextInput {{ text-align: left !important; }}
     div[data-baseweb="input"], input {{ text-align: left !important; border: none !important; background-color: #f0f2f6 !important; }}
 
-    /* ✅ 지시 2: 이미지 및 요소 중앙 정렬 */
-    [data-testid="stImage"] {{
-        display: flex !important;
-        justify-content: center !important;
-    }}
+    /* 이미지 크기 고정 및 디자인 */
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: auto !important;
@@ -31,8 +27,8 @@ st.markdown(f"""
         border-radius: 8px;
     }}
 
-    /* 입력창 및 버튼 텍스트 중앙 정렬 */
-    div[data-testid="column"] .stTextInput input {{ text-align: center !important; }}
+    /* 입력창 및 텍스트 중앙 정렬 */
+    [data-testid="column"] input {{ text-align: center !important; }}
     .stCaption {{ text-align: center !important; width: 100% !important; }}
     
     .section-title {{ font-size: 18px !important; font-weight: bold !important; margin: 20px 0 10px 0; text-align: left !important; }}
@@ -73,7 +69,7 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- ⬅️ 4. 사이드바 ---
+# --- ⬅️ 4. 사이드바 (로그아웃, 데이터 초기화) ---
 with st.sidebar:
     st.markdown(f"### 👤 {st.session_state.user_id}")
     st.divider()
@@ -97,7 +93,7 @@ with c2:
 
 st.divider()
 
-# --- 🔍 6. 책 검색 (가로 4개 중앙 배치) ---
+# --- 🔍 6. 책 검색 (가로 4개 및 물리적 중앙 배치 완벽 구현) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visibility="collapsed") 
 
@@ -106,27 +102,35 @@ if q:
         res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
         items = re.findall(r'<table.*?>(.*?)</table>', res, re.DOTALL)
         if items:
-            # ✅ 가로로 4개씩 배치하기 위해 컬럼 생성
-            search_cols = st.columns(4)
-            for idx, item_html in enumerate(items[:8]): # 최대 8개 검색 (2줄)
-                col = search_cols[idx % 4]
-                img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-                genre_matches = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
-                
-                if img_match:
-                    url = img_match.group()
-                    found_genre = genre_matches[-1] if genre_matches else "미지정"
+            # 8개 아이템을 4개씩 2줄로 배치
+            for row_idx in range(2):
+                main_cols = st.columns(4)
+                for col_idx in range(4):
+                    idx = row_idx * 4 + col_idx
+                    if idx >= len(items): break
                     
-                    with col:
-                        st.image(url)
-                        sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{url}_{idx}", label_visibility="collapsed")
-                        b1, b2 = st.columns(2)
-                        if b1.button("📖 읽음", key=f"r_{url}_{idx}", use_container_width=True):
-                            img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                            st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
-                            save_all(); st.rerun()
-                        if b2.button("🩵 위시", key=f"w_{url}_{idx}", use_container_width=True):
-                            st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
+                    item_html = items[idx]
+                    img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
+                    # ✅ 장르 추출: 링크 텍스트 정밀 타격
+                    genre_matches = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
+                    
+                    if img_match:
+                        url = img_match.group()
+                        found_genre = genre_matches[-1] if genre_matches else "미지정"
+                        
+                        with main_cols[col_idx]:
+                            # ✅ 핵심: 컬럼 내부에 Spacer 컬럼을 두어 이미지를 정중앙으로 강제 정렬
+                            _, center_area, _ = st.columns([0.5, 2.5, 0.5])
+                            with center_area:
+                                st.image(url)
+                            sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{url}_{idx}", label_visibility="collapsed")
+                            b1, b2 = st.columns(2)
+                            if b1.button("📖 읽음", key=f"r_{url}_{idx}", use_container_width=True):
+                                img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
+                                st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
+                                save_all(); st.rerun()
+                            if b2.button("🩵 위시", key=f"w_{url}_{idx}", use_container_width=True):
+                                st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
     except: pass
 
 # --- 📚 7. 목록 및 삭제 ---
