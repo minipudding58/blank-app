@@ -8,11 +8,11 @@ import os
 from datetime import datetime, date
 from collections import Counter, defaultdict
 
-# --- ⚙️ 1. 기본 설정 (절대 고정) ---
+# --- ⚙️ 1. 기본 설정 ---
 st.set_page_config(page_title="나의 독서 기록장", page_icon="📖", layout="wide")
 TARGET_H_PX = 180
 
-# --- 🎨 2. [UI] CSS 스타일 (사용자 요청 디자인 반영) ---
+# --- 🎨 2. [UI] CSS 스타일 (원본 디자인 유지) ---
 st.markdown(f"""
     <style>
     .stTextInput {{ text-align: left !important; }}
@@ -109,7 +109,7 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (수정된 엔진) ---
+# --- 🔍 5. 검색 섹션 (핵심 엔진 수리 완료) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색어 입력", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
@@ -121,24 +121,26 @@ if q:
         res.encoding = 'utf-8'
         html = res.text
         
-        # 이미지와 제목을 세트로 추출하기 위해 더 정교한 패턴 사용
-        items = re.findall(r'<(?:td|div)[^>]*class="ss_book_box".*?src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)".*?class="bo3"><b>(.*?)</b>', html, re.DOTALL)
+        # ✅ 불필요한 공백과 줄바꿈을 무시하고 데이터를 가져오도록 정규식 전면 수정
+        # 이미지 주소와 제목(bo3 클래스 안의 b 태그)을 정확히 매칭합니다.
+        items = re.findall(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)".*?class="bo3"><b>(.*?)</b>', html, re.DOTALL)
         
-        valid_books = []
-        seen = set()
-        
-        for img_url, title in items:
-            if img_url not in seen:
-                try:
-                    seg = html.split(img_url)[1].split('</table>')[0]
-                    genre_match = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', seg)
-                    genre = genre_match[-1] if genre_match else "미정"
-                except: genre = "미정"
-                
-                valid_books.append({"url": img_url, "title": title, "genre": genre})
-                seen.add(img_url)
+        if items:
+            valid_books = []
+            seen = set()
+            for img_url, title in items:
+                if img_url not in seen:
+                    # 분야(장르) 추출
+                    try:
+                        seg = html.split(img_url)[1].split('</table>')[0]
+                        genre_match = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', seg)
+                        genre = genre_match[-1] if genre_match else "미정"
+                    except: genre = "미정"
+                    
+                    valid_books.append({"url": img_url, "title": title, "genre": genre})
+                    seen.add(img_url)
 
-        if valid_books:
+            # 4열 그리드 출력
             for i in range(0, min(12, len(valid_books)), 4):
                 cols = st.columns(4)
                 for j in range(4):
@@ -149,12 +151,15 @@ if q:
                             st.markdown('<div class="search-card">', unsafe_allow_html=True)
                             st.image(book["url"])
                             st.markdown('</div>', unsafe_allow_html=True)
+                            
                             st.markdown(f"<div class='no-title-text'>{book['title']}</div>", unsafe_allow_html=True)
                             st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
                             g_val = st.text_input("분야수정", value=book["genre"], label_visibility="collapsed", key=f"s_gen_{idx}")
-                            with st.expander("📅 기간 설정"):
+                            
+                            with st.expander("📅 기간"):
                                 s_d = st.date_input("시작", value=date.today(), key=f"s_ds_{idx}")
                                 e_d = st.date_input("종료", value=date.today(), key=f"s_de_{idx}")
+                            
                             b_r, b_w = st.columns(2)
                             if b_r.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
                                 img_data = requests.get(book["url"]).content
@@ -164,9 +169,9 @@ if q:
                                 st.session_state.wishlist.append({"url": book["url"], "genre": g_val, "title": book["title"]})
                                 save_all(); st.rerun()
         else:
-            st.warning(f"'{q}' 검색 결과가 없습니다.")
+            st.warning(f"'{q}'에 대한 검색 결과가 없습니다.")
     except Exception as e:
-        st.error(f"오류 발생: {e}")
+        st.error(f"실행 중 오류가 발생했습니다: {e}")
 
 # --- 📚 6. 내 서재 목록 ---
 st.divider()
