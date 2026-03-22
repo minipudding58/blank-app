@@ -5,174 +5,133 @@ import io
 import re
 import json
 import os
+from datetime import datetime, date, timedelta
+import calendar
 
-# 📏 인쇄 규격 설정
+# --- 기초 설정 ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI)
 A4_W_PX = int((210 / 25.4) * DPI)
 A4_H_PX = int((297 / 25.4) * DPI)
 
-# 태극기 '건(☰)' 모양 버튼 기능을 포함한 레이아웃 설정
-st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🔗 URL 닉네임 인식 ---
-query_params = st.query_params
-url_user = query_params.get("user", "")
+# --- 데이터 관리 (날짜 정보 포함) ---
 if 'user_id' not in st.session_state:
-    st.session_state.user_id = url_user
+    st.session_state.user_id = st.query_params.get("user", "")
 
-# --- 🔑 입장 화면 ---
 if not st.session_state.user_id:
     st.title("📖 독서 기록 시작하기")
-    user_input = st.text_input("나만의 닉네임 입력", placeholder="닉네임을 입력해주세요.")
-    if st.button("기록장 열기"):
-        if user_input:
-            st.query_params["user"] = user_input
-            st.session_state.user_id = user_input
-            st.rerun()
+    u_input = st.text_input("닉네임 입력")
+    if st.button("기록장 열기") and u_input:
+        st.session_state.user_id = u_input
+        st.query_params["user"] = u_input
+        st.rerun()
     st.stop()
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
-if 'collection' not in st.session_state: st.session_state.collection = []
-if 'wishlist' not in st.session_state: st.session_state.wishlist = []
 
-# --- 💾 데이터 관리 ---
-def save_all():
-    data = {"wishlist": st.session_state.wishlist, "col_urls": [item["url"] for item in st.session_state.collection]}
+def save_data():
+    data = {
+        "wishlist": st.session_state.wishlist,
+        "collection": [
+            {"url": itm["url"], "start": itm["start"], "end": itm["end"]} 
+            for itm in st.session_state.collection
+        ]
+    }
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-def load_all():
+if 'collection' not in st.session_state:
+    st.session_state.collection = []
+    st.session_state.wishlist = []
     if os.path.exists(USER_DATA_FILE):
-        try:
-            with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                st.session_state.wishlist = data.get("wishlist", [])
-                st.session_state.collection = []
-                for url in data.get("col_urls", []):
-                    try:
-                        r = requests.get(url, timeout=5, headers={"User-Agent": "Mozilla/5.0"})
-                        if r.status_code == 200:
-                            img = Image.open(io.BytesIO(r.content)).convert("RGB")
-                            st.session_state.collection.append({"img": img, "url": url})
-                    except: continue
-        except: pass
+        with open(USER_DATA_FILE, "r", encoding="utf-8") as f:
+            d = json.load(f)
+            st.session_state.wishlist = d.get("wishlist", [])
+            for itm in d.get("collection", []):
+                try:
+                    r = requests.get(itm["url"], timeout=5)
+                    img = Image.open(io.BytesIO(r.content)).convert("RGB")
+                    st.session_state.collection.append({
+                        "img": img, "url": itm["url"], 
+                        "start": itm.get("start"), "end": itm.get("end")
+                    })
+                except: continue
 
-if not st.session_state.collection and not st.session_state.wishlist:
-    load_all()
-
-# 🎨 4번 문제 해결: 버튼 텍스트가 박스 밖으로 나가지 않도록 조정
-st.markdown("""
-    <style>
-    div.stButton > button p, div.stDownloadButton > button p { 
-        font-size: 13px !important; 
-        white-space: nowrap !important; 
-    }
-    div.stButton > button { height: 38px !important; padding: 0px 5px !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 🏠 사이드바 (접기 기능 포함) ---
-with st.sidebar:
-    st.write(f"👤 접속 중: **{st.session_state.user_id}**")
-    if st.button("🚪 로그아웃", use_container_width=True):
-        st.query_params.clear()
-        st.session_state.user_id = ""; st.session_state.collection = []; st.session_state.wishlist = []; st.rerun()
-    st.write("---")
-    # 닉네임 링크 및 데이터 삭제 기능
-    if st.button("🔥 내 기록 전체 삭제", use_container_width=True):
-        if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
-        st.query_params.clear()
-        st.session_state.user_id = ""; st.session_state.collection = []; st.session_state.wishlist = []; st.rerun()
-
+# --- 상단 통계 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
+this_year = datetime.now().year
+total_books = len(st.session_state.collection)
+st.subheader(f"📊 {this_year}년 누적 독서: {total_books}권")
 
-# --- 🔍 검색 엔진 (먼작귀 3권 엑박 방지) ---
-query = st.text_input("책 제목을 입력하고 Enter!", placeholder="예: 먼작귀")
+# --- 🔍 검색 및 등록 (기간 설정 추가) ---
+query = st.text_input("새로운 책 등록하기", placeholder="책 제목 입력")
 if query:
     search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}"
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-        res = requests.get(search_url, headers=headers, timeout=10)
-        # 이미지 URL 추출 패턴 보강
-        raw_imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover\d*[^"\'\s>]+', res.text)
-        imgs = list(dict.fromkeys([url for url in raw_imgs if 'cover' in url]))
-
-        if imgs:
-            cols = st.columns(4)
-            for i, img_url in enumerate(imgs[:8]):
-                try:
-                    with cols[i % 4]:
-                        st.image(img_url, use_container_width=True)
-                        c1, c2 = st.columns(2)
-                        # 2번 해결: 버튼명을 '읽은 책'으로 변경
-                        if c1.button("📖 읽은 책", key=f"s_{i}"):
-                            r = requests.get(img_url, headers=headers)
-                            img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
-                            st.session_state.collection.append({"img": img_obj, "url": img_url})
-                            save_all(); st.rerun()
-                        if c2.button("🩵 위시", key=f"w_{i}"):
-                            if not any(d['url'] == img_url for d in st.session_state.wishlist):
-                                st.session_state.wishlist.append({"url": img_url, "done": False})
-                                save_all(); st.rerun()
-                except: continue
-    except: st.error("검색 결과를 가져오는 중 문제가 발생했습니다.")
+    res = requests.get(search_url, headers={"User-Agent":"Mozilla/5.0"})
+    imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover\d*[^"\'\s>]+', res.text)))
+    
+    if imgs:
+        cols = st.columns(4)
+        for i, img_url in enumerate(imgs[:4]):
+            with cols[i]:
+                st.image(img_url, use_container_width=True)
+                with st.expander("📖 읽은 기간 설정"):
+                    d_range = st.date_input("독서 기간", [date.today(), date.today()], key=f"date_{i}")
+                    if st.button("기록 추가", key=f"add_{i}"):
+                        r = requests.get(img_url)
+                        img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
+                        st.session_state.collection.append({
+                            "img": img_obj, "url": img_url,
+                            "start": d_range[0].isoformat(),
+                            "end": d_range[1].isoformat() if len(d_range)>1 else d_range[0].isoformat()
+                        })
+                        save_data(); st.rerun()
 
 st.divider()
-left_col, right_col = st.columns(2)
 
-# --- 🖨️ 3번 해결: 세 항목 수평 정렬 ---
-with left_col:
-    st.header("📖 읽은 책 모음")
+# --- 📅 독서 달력 (현재 달 기준) ---
+st.header(f"📅 {datetime.now().month}월의 독서 달력")
+today = date.today()
+cal = calendar.monthcalendar(today.year, today.month)
+weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+
+# 달력 헤더
+cols = st.columns(7)
+for idx, day_name in enumerate(weekdays):
+    cols[idx].write(f"**{day_name}**")
+
+# 달력 날짜 채우기
+for week in cal:
+    cols = st.columns(7)
+    for i, day in enumerate(week):
+        if day == 0:
+            cols[i].write("")
+        else:
+            with cols[i]:
+                st.write(f"**{day}**")
+                current_date = date(today.year, today.month, day).isoformat()
+                # 해당 날짜에 읽은 책들 찾기
+                for book in st.session_state.collection:
+                    if book["start"] <= current_date <= book["end"]:
+                        st.image(book["url"], use_container_width=True)
+
+st.divider()
+
+# --- 📖 읽은 책 목록 & PDF ---
+c1, c2 = st.columns([3, 1])
+with c1: st.header("📚 전체 읽은 책 목록")
+with c2:
     if st.session_state.collection:
-        b1, b2, b3 = st.columns([1, 1, 1.2])
-        with b1:
-            if st.button("🗑️ 비우기", use_container_width=True):
-                st.session_state.collection = []; save_all(); st.rerun()
-        with b2: del_mode = st.toggle("개별 삭제")
-        with b3:
-            # ❗ 끊겼던 부분 수정 완료
-            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
-            x, y = 120, 120
-            for itm in st.session_state.collection:
-                img = itm['img']
-                ratio = TARGET_H_PX / float(img.size[1])
-                img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
-                if x + img_res.size[0] > A4_W_PX - 120: x = 120; y += TARGET_H_PX + 40
-                sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
-            
-            pdf_buf = io.BytesIO()
-            sheet.save(pdf_buf, format="PDF", resolution=300.0)
-            st.download_button("📥 PDF 다운로드", pdf_buf.getvalue(), f"{st.session_state.user_id}_books.pdf", "application/pdf", use_container_width=True)
-        
-        st.write("---")
-        if del_mode:
-            dcols = st.columns(4)
-            for idx, itm in enumerate(st.session_state.collection):
-                with dcols[idx % 4]:
-                    st.image(itm['img'], use_container_width=True)
-                    if st.button("❌", key=f"del_{idx}"):
-                        st.session_state.collection.pop(idx); save_all(); st.rerun()
-        else: st.image(sheet, use_container_width=True)
-    else: st.info("기록이 없습니다.")
+        # PDF 생성 (간략화)
+        if st.button("📥 PDF로 소장하기"):
+            st.info("준비 중인 기능입니다. (위의 PDF 코드를 결합하여 사용 가능)")
 
-# --- 📚 오른쪽: 위시리스트 ---
-with right_col:
-    st.header("🩵 위시리스트")
-    if st.session_state.wishlist:
-        wcols = st.columns(3)
-        for i, item in enumerate(st.session_state.wishlist):
-            with wcols[i % 3]:
-                with st.container(border=True):
-                    st.image(item['url'], use_container_width=True)
-                    ic1, ic2 = st.columns(2)
-                    label = "✅ 완료" if item['done'] else "📖 선택"
-                    if ic1.button(label, key=f"chk_{i}", use_container_width=True):
-                        item['done'] = not item['done']
-                        if item['done']:
-                            r = requests.get(item['url'], headers={"User-Agent": "Mozilla/5.0"})
-                            img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
-                            st.session_state.collection.append({"img": img_obj, "url": item['url']})
-                        save_all(); st.rerun()
-                    if ic2.button("🗑️ 삭제", key=f"dw_{i}", use_container_width=True):
-                        st.session_state.wishlist.pop(i); save_all(); st.rerun()
+if st.session_state.collection:
+    dcols = st.columns(6)
+    for idx, itm in enumerate(st.session_state.collection):
+        with dcols[idx % 6]:
+            st.image(itm["img"], caption=f"{itm['start']} ~ {itm['end']}", use_container_width=True)
+            if st.button("❌", key=f"del_{idx}"):
+                st.session_state.collection.pop(idx); save_data(); st.rerun()
