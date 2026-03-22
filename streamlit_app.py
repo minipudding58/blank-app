@@ -6,7 +6,7 @@ import re
 import json
 import os
 
-# 📏 인쇄 규격 설정 (DPI=300, 세로 40mm)
+# 📏 인쇄 규격 설정
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI)
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -14,7 +14,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# 데이터 저장소 초기화
+# --- 💾 데이터 관리 ---
 DATA_FILE = "my_reading_data.json"
 if 'collection' not in st.session_state: st.session_state.collection = []
 if 'wishlist' not in st.session_state: st.session_state.wishlist = []
@@ -35,15 +35,17 @@ def load_all():
                 st.session_state.wishlist = data.get("wishlist", [])
                 st.session_state.collection = []
                 for url in data.get("col_urls", []):
-                    r = requests.get(url, timeout=5)
-                    img = Image.open(io.BytesIO(r.content)).convert("RGB")
-                    st.session_state.collection.append({"img": img, "url": url})
+                    try:
+                        r = requests.get(url, timeout=5)
+                        img = Image.open(io.BytesIO(r.content)).convert("RGB")
+                        st.session_state.collection.append({"img": img, "url": url})
+                    except: continue
         except: pass
 
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# --- 🎨 스타일 설정 ---
+# --- 🎨 스타일 설정 (PDF 버튼 색상 #FDEDED) ---
 st.markdown("""
     <style>
     .stCaption { display:none; }
@@ -63,54 +65,50 @@ st.markdown("""
 
 st.title("📖 나의 독서 기록 관리")
 
-# --- 🔍 책 검색 엔진 (안정화 버전) ---
+# --- 🔍 책 검색 섹션 ---
 query = st.text_input("책 제목을 입력하고 Enter!", placeholder="예: 해리포터")
 
 if query:
-    url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}"
-    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-    imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+', res.text)
-    
-    if imgs:
-        cols = st.columns(4)
-        for i, img_url in enumerate(imgs[:8]):
-            with cols[i % 4]:
-                st.image(img_url, use_container_width=True)
-                c1, c2 = st.columns(2)
-                if c1.button("🖼️ 스티커", key=f"s_{i}"):
-                    r = requests.get(img_url)
-                    img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
-                    st.session_state.collection.append({"img": img_obj, "url": img_url})
-                    save_all(); st.rerun()
-                if c2.button("💛 위시", key=f"w_{i}"):
-                    if not any(d['url'] == img_url for d in st.session_state.wishlist):
-                        st.session_state.wishlist.append({"url": img_url, "done": False})
-                        save_all(); st.rerun()
-    else:
-        st.error("검색 결과가 없습니다!")
+    search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}"
+    try:
+        res = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+', res.text)
+        
+        if imgs:
+            cols = st.columns(4)
+            for i, img_url in enumerate(imgs[:8]):
+                with cols[i % 4]:
+                    st.image(img_url, use_container_width=True)
+                    c1, c2 = st.columns(2)
+                    if c1.button("📖 읽은 책", key=f"s_{i}"):
+                        r = requests.get(img_url)
+                        img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
+                        st.session_state.collection.append({"img": img_obj, "url": img_url})
+                        save_all()
+                        st.rerun()
+                    if c2.button("💕 위시", key=f"w_{i}"):
+                        if not any(d['url'] == img_url for d in st.session_state.wishlist):
+                            st.session_state.wishlist.append({"url": img_url, "done": False})
+                            save_all()
+                            st.rerun()
+    except: st.error("검색 중 오류가 발생했습니다.")
 
 st.divider()
 left_col, right_col = st.columns(2)
 
 # --- 🖨️ 왼쪽: 읽은 책 모음 ---
 with left_col:
-    st.header("🖨️ 읽은 책 모음 (A4)")
+    st.header("📖 읽은 책 모음")
     if st.session_state.collection:
-        del_cols = st.columns([4, 1])
-        with del_cols[0]:
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
+        with btn_col1:
             if st.button("🗑️ 전체 비우기"):
-                st.session_state.collection = []; save_all(); st.rerun()
-        with del_cols[1]: del_mode = st.toggle("개별 삭제 모드")
-            
-        if del_mode:
-            st.info("❌ 버튼을 누르면 인쇄판에서 삭제됩니다.")
-            cols_del = st.columns(5)
-            for idx, itm in enumerate(st.session_state.collection):
-                with cols_del[idx % 5]:
-                    st.image(itm['img'], use_container_width=True)
-                    if st.button("❌ 삭제", key=f"del_{idx}"):
-                        st.session_state.collection.pop(idx); save_all(); st.rerun()
-        else:
+                st.session_state.collection = []
+                save_all()
+                st.rerun()
+        with btn_col2:
+            del_mode = st.toggle("개별 삭제 모드")
+        with btn_col3:
             sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
             x, y = 120, 120
             for itm in st.session_state.collection:
@@ -121,7 +119,6 @@ with left_col:
                     x = 120; y += TARGET_H_PX + 40
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
             
-            st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
             pdf_buf = io.BytesIO()
             sheet.save(pdf_buf, format="PDF", resolution=300.0)
             st.download_button(
@@ -130,41 +127,47 @@ with left_col:
                 file_name="my_stickers.pdf",
                 mime="application/pdf"
             )
+        st.write("---")
+        if del_mode:
+            dcols = st.columns(4)
+            for idx, itm in enumerate(st.session_state.collection):
+                with dcols[idx % 4]:
+                    st.image(itm['img'], use_container_width=True)
+                    if st.button("❌ 삭제", key=f"del_{idx}"):
+                        st.session_state.collection.pop(idx)
+                        save_all()
+                        st.rerun()
+        else:
+            st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
+    else: st.info("읽은 책을 추가해 보세요!")
 
-# --- 📚 요청 반영: 위시리스트 (아이콘 -> 글자 버튼) ---
+# --- 📚 오른쪽: 위시리스트 (요청하신 버튼 디자인 적용) ---
 with right_col:
-    st.header("📚 위시리스트")
+    st.header("💕 위시리스트")
     if st.session_state.wishlist:
         wcols = st.columns(3)
         for i, item in enumerate(st.session_state.wishlist):
             with wcols[i % 3]:
-                # 💡 요청사항 반영: 작은 슬림 카드 디자인
                 with st.container(border=True):
-                    # 🖼️ 책 이미지 (상단)
                     st.image(item['url'], use_container_width=True)
+                    ic1, ic2 = st.columns(2)
                     
-                    # 💡 요청 반영: 아이콘 대신 글자가 들어간 버튼으로 교체
-                    c_btn1, c_btn2 = st.columns(2)
-                    
-                    with c_btn1:
-                        # ⚪ 동그라미 대신 **[📖 선택]** 버튼
-                        if not item['done']:
-                            if st.button("📖 선택", key=f"chk_{i}", use_container_width=True):
-                                st.session_state.wishlist[i]['done'] = True
-                                # 선택 시 자동으로 읽은 책 모음에 추가
-                                requests.get(item['url']) # 에러 방지용
-                                img_res = requests.get(item['url'])
-                                img_obj = Image.open(io.BytesIO(img_res.content)).convert("RGB")
+                    # 💡 선택 버튼 (누르면 읽은 책에 추가)
+                    btn_label = "✅ 완료" if item['done'] else "📖 선택"
+                    if ic1.button(btn_label, key=f"chk_{i}", use_container_width=True):
+                        new_status = not item['done']
+                        st.session_state.wishlist[i]['done'] = new_status
+                        if new_status: # 체크할 때만 추가
+                            r = requests.get(item['url'])
+                            img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
+                            if not any(d['url'] == item['url'] for d in st.session_state.collection):
                                 st.session_state.collection.append({"img": img_obj, "url": item['url']})
-                                st.toast("💕 위시에서 인쇄판으로 담았습니다!")
-                                save_all(); st.rerun()
-                        else:
-                            # ✅ 체크 대신 **[✅ 완료]** 버튼 (클릭 시 취소)
-                            if st.button("✅ 완료", key=f"chk_done_{i}", use_container_width=True):
-                                st.session_state.wishlist[i]['done'] = False
-                                save_all(); st.rerun()
-                    with c_btn2:
-                        # 🗑️ 쓰레기통 대신 **[🗑️ 삭제]** 버튼
-                        if st.button("🗑️ 삭제", key=f"del_wi_{i}", use_container_width=True):
-                            st.session_state.wishlist.pop(i)
-                            save_all(); st.
+                        save_all()
+                        st.rerun()
+                        
+                    # 💡 삭제 버튼
+                    if ic2.button("🗑️ 삭제", key=f"del_w_{i}", use_container_width=True):
+                        st.session_state.wishlist.pop(i)
+                        save_all()
+                        st.rerun()
+    else: st.write("위시리스트가 비어있습니다.")
