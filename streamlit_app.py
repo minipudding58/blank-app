@@ -133,4 +133,30 @@ with left_col:
 
         if del_mode:
             dcols = st.columns(4)
-            for idx, it
+            for idx, itm in enumerate(st.session_state.collection):
+                with dcols[idx % 4]:
+                    st.image(itm['img'], use_container_width=True)
+                    if st.button("❌", key=f"del_{{idx}}"):
+                        st.session_state.collection.pop(idx)
+                        save_all(); st.rerun()
+        else:
+            st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
+    else:
+        st.info("스티커를 추가해 보세요!")
+
+# --- 📚 오른쪽: 위시리스트 ---
+with right_col:
+    st.header("📚 위시리스트")
+    if st.session_state.wishlist:
+        wcols = st.columns(3)
+        for i, item in enumerate(st.session_state.wishlist):
+            with wcols[i % 3]:
+                with st.container(border=True):
+                    st.image(item['url'], use_container_width=True)
+                    ic1, ic2 = st.columns(2)
+                    if ic1.button("⚪" if not item['done'] else "✅", key=f"chk_{{i}}"):
+                        st.session_state.wishlist[i]['done'] = not item['done']
+                        save_all(); st.rerun()
+                    if ic2.button("🗑️", key=f"dw_{{i}}"):
+                        st.session_state.wishlist.pop(i)
+                        save_all(); st.rerun()
