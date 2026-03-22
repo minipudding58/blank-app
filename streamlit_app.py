@@ -12,14 +12,14 @@ from collections import Counter
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 TARGET_H_PX = 200 
 
-# --- 🎨 2. [UI] 스타일 (검색창 좌측 정렬 및 중앙 정렬 제어) ---
+# --- 🎨 2. [UI] 스타일 (검색창 좌측 정렬 및 중앙 배치 제어) ---
 st.markdown(f"""
     <style>
     /* ✅ 검색창 좌측 정렬 고정 */
     .stTextInput {{ text-align: left !important; }}
     div[data-baseweb="input"], input {{ text-align: left !important; border: none !important; background-color: #f0f2f6 !important; }}
 
-    /* 이미지 크기 고정 */
+    /* 이미지 크기 고정 및 둥근 모서리 */
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: auto !important;
@@ -93,7 +93,7 @@ with c2:
 
 st.divider()
 
-# --- 🔍 6. 책 검색 (물리적 중앙 배치 레이아웃 적용) ---
+# --- 🔍 6. 책 검색 (물리적 중앙 배치 및 검색 복구) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visibility="collapsed") 
 
@@ -104,14 +104,14 @@ if q:
         if items:
             for item_html in items[:4]:
                 img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-                # ✅ 장르 추출 정규식 보강 (미지정 해결)
+                # ✅ 장르 추출 정규식 강화
                 genre_matches = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
                 
                 if img_match:
                     url = img_match.group()
                     found_genre = genre_matches[-1] if genre_matches else "미지정"
                     
-                    # ✅ 양옆 공백을 이용한 중앙 정렬 강제
+                    # ✅ 물리적 중앙 배치 (1:1.5:1)
                     sp_l, center, sp_r = st.columns([1, 1.5, 1])
                     with center:
                         st.image(url)
