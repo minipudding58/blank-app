@@ -10,113 +10,127 @@ TARGET_H_PX = int((40 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# 세션 상태 초기화 (담은 스티커 목록)
+# 세션 상태 초기화
 if 'my_collection' not in st.session_state:
     st.session_state.my_collection = []
+if 'wishlist' not in st.session_state:
+    st.session_state.wishlist = []
 
 # --- UI 상단 ---
 st.title("📖 나의 독서 기록")
-st.write("원하는 책을 검색하고, 마음에 드는 표지를 선택해 A4 인쇄판을 만드세요!")
+st.write("표지를 골라 **인쇄용 스티커**를 만들거나, **읽고 싶은 책**을 보관함에 담으세요.")
 
-# --- 섹션 1: 검색 (엔터 치면 바로 실행) ---
-query = st.text_input("책 제목을 입력하고 Enter를 누르세요!", placeholder="예: 해리포터와 마법사의 돌")
+# --- 섹션 1: 검색 ---
+query = st.text_input("책 제목을 입력하고 Enter를 누르세요!", placeholder="예: 해리포터, 불편한 편의점")
 
 def get_aladdin_covers(search_query):
-    """알라딘에서 검색어와 일치하는 모든 책의 표지와 정보를 가져옵니다."""
-    # 알라딘 오픈 API 대용 검색 결과 파싱 (안전한 패턴 매칭 방식)
+    """알라딘에서 정보를 가져오며 지저분한 코드를 정제합니다."""
     url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={search_query}"
     headers = {"User-Agent": "Mozilla/5.0"}
     results = []
     try:
         res = requests.get(url, headers=headers, timeout=5)
         text = res.text
-        # 검색 결과 내에서 상품 아이디(ISBN/ItemID)와 제목 패턴 추출
         parts = text.split('<div class="ss_book_box"')
-        for part in parts[1:11]: # 상위 10개만 추출
+        for part in parts[1:11]:
             try:
                 # 이미지 주소 추출
                 img_start = part.find('https://image.aladin.co.kr/product/')
                 img_end = part.find('"', img_start)
                 img_url = part[img_start:img_end].replace("cover200", "cover500")
                 
-                # 제목 추출
+                # 제목 추출 (지저분한 태그 제거)
                 title_start = part.find('class="bo3"><b>') + 15
                 title_end = part.find('</b>', title_start)
-                title = part[title_start:title_end]
+                raw_title = part[title_start:title_end]
+                # HTML 태그 등 찌꺼기 제거
+                clean_title = raw_title.replace("<b>", "").replace("</b>", "").strip()
                 
                 if img_start != -1:
-                    results.append({"title": title, "url": img_url})
+                    results.append({"title": clean_title, "url": img_url})
             except:
                 continue
     except:
-        st.error("검색 서버에 연결할 수 없습니다.")
+        st.error("서버 연결 실패")
     return results
 
 if query:
-    with st.spinner(f"'{query}'의 모든 판본을 찾는 중..."):
+    with st.spinner(f"'{query}' 찾는 중..."):
         books = get_aladdin_covers(query)
         
         if not books:
-            st.warning("검색 결과가 없습니다. 제목을 정확히 입력해 주세요.")
+            st.warning("결과가 없습니다.")
         else:
-            st.subheader(f"📍 '{query}' 검색 결과 (원하는 표지를 고르세요)")
+            st.subheader(f"📍 '{query}' 검색 결과")
             cols = st.columns(5)
             for idx, book in enumerate(books):
                 with cols[idx % 5]:
                     try:
                         img_res = requests.get(book['url'], timeout=5)
-                        img = Image.open(io.BytesIO(img_res.content)).convert("RGB")
-                        st.image(img, use_container_width=True)
-                        # 제목이 너무 길면 자르기
-                        short_title = (book['title'][:15] + '..') if len(book['title']) > 15 else book['title']
-                        st.caption(short_title)
+                        img_data = img_res.content
+                        img = Image.open(io.BytesIO(img_data)).convert("RGB")
                         
-                        if st.button("이 표지 선택", key=f"select_{idx}"):
+                        st.image(img, use_container_width=True)
+                        # 제목 출력 (이미지 밑에 지저분한 텍스트 없이 깔끔하게)
+                        display_title = (book['title'][:15] + '..') if len(book['title']) > 15 else book['title']
+                        st.caption(display_title)
+                        
+                        # 버튼 2종 세트
+                        if st.button("🖼️ 스티커 담기", key=f"sticker_{idx}"):
                             st.session_state.my_collection.append(img)
-                            st.toast(f"'{short_title}' 보관함에 추가!")
+                            st.toast("스티커 판에 추가되었습니다!")
+                        
+                        if st.button("💛 위시리스트", key=f"wish_{idx}"):
+                            if book['title'] not in st.session_state.wishlist:
+                                st.session_state.wishlist.append(book['title'])
+                                st.toast("읽고 싶은 책 보관함에 저장!")
                     except:
                         continue
 
-# --- 섹션 2: 보관함 및 A4 미리보기 ---
+# --- 섹션 2: 보관함 공간 ---
 st.divider()
-col_left, col_right = st.columns([1, 2])
+tab1, tab2 = st.tabs(["🖨️ 인쇄용 스티커 판", "📚 읽고 싶은 책 보관함"])
 
-with col_left:
-    st.subheader("✅ 담은 스티커 목록")
-    st.write(f"현재 총 **{len(st.session_state.my_collection)}개** 선택됨")
-    if st.button("🗑️ 전체 비우기"):
-        st.session_state.my_collection = []
-        st.rerun()
+with tab1:
+    col_a, col_b = st.columns([1, 3])
+    with col_a:
+        st.write(f"현재 **{len(st.session_state.my_collection)}개** 담김")
+        if st.button("🗑️ 판 비우기"):
+            st.session_state.my_collection = []
+            st.rerun()
+    
+    with col_b:
+        if st.session_state.my_collection:
+            a4_w, a4_h = int(210/25.4*DPI), int(297/25.4*DPI)
+            sheet = Image.new('RGB', (a4_w, a4_h), (255, 255, 255))
+            curr_x, curr_y = 120, 120
+            
+            for pic in st.session_state.my_collection:
+                ratio = TARGET_H_PX / float(pic.size[1])
+                w = int(pic.size[0] * ratio)
+                pic_res = pic.resize((w, TARGET_H_PX), Image.LANCZOS)
+                
+                if curr_x + w > a4_w - 120:
+                    curr_x = 120
+                    curr_y += TARGET_H_PX + 50
+                
+                if curr_y + TARGET_H_PX < a4_h - 120:
+                    sheet.paste(pic_res, (curr_x, curr_y))
+                    curr_x += w + 50
+            
+            st.image(sheet, use_container_width=True)
+            buf = io.BytesIO()
+            sheet.save(buf, format="PNG")
+            st.download_button("📥 스티커 판 다운로드", buf.getvalue(), "stickers.png", "image/png")
 
-with col_right:
-    st.subheader("🖨️ A4 인쇄 미리보기")
-    if not st.session_state.my_collection:
-        st.info("검색 결과에서 표지를 선택하면 여기에 A4 용지가 생성됩니다.")
+with tab2:
+    st.subheader("📝 나의 독서 위시리스트")
+    if not st.session_state.wishlist:
+        st.info("나중에 읽고 싶은 책을 검색 결과에서 담아보세요!")
     else:
-        # A4 용지 생성 (300 DPI)
-        a4_w, a4_h = int(210/25.4*DPI), int(297/25.4*DPI)
-        sheet = Image.new('RGB', (a4_w, a4_h), (255, 255, 255))
-        curr_x, curr_y = 120, 120
-        margin = 50
-        
-        for img in st.session_state.my_collection:
-            ratio = TARGET_H_PX / float(img.size[1])
-            w = int(img.size[0] * ratio)
-            img_res = img.resize((w, TARGET_H_PX), Image.LANCZOS)
-            
-            # 줄바꿈 로직
-            if curr_x + w > a4_w - 120:
-                curr_x = 120
-                curr_y += TARGET_H_PX + margin
-            
-            # 용지 범위를 벗어나지 않을 때만 붙이기
-            if curr_y + TARGET_H_PX < a4_h - 120:
-                sheet.paste(img_res, (curr_x, curr_y))
-                curr_x += w + margin
-        
-        st.image(sheet, use_container_width=True)
-        
-        # 다운로드 버튼
-        buf = io.BytesIO()
-        sheet.save(buf, format="PNG")
-        st.download_button("📥 인쇄용 이미지 다운로드", buf.getvalue(), "my_book_stickers.png", "image/png")
+        for i, book_name in enumerate(st.session_state.wishlist):
+            c1, c2 = st.columns([4, 1])
+            c1.write(f"{i+1}. {book_name}")
+            if c2.button("삭제", key=f"del_wish_{i}"):
+                st.session_state.wishlist.pop(i)
+                st.rerun()
