@@ -5,13 +5,13 @@ import io
 import re
 import json
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
 from collections import Counter
 
 # --- 기초 규격 설정 ---
 DPI = 300
-TARGET_H_PX = int((35 / 25.4) * DPI)
+TARGET_H_PX = int((40 / 25.4) * DPI) # 목록용 세로 길이 고정
 A4_W_PX = int((210 / 25.4) * DPI)
 A4_H_PX = int((297 / 25.4) * DPI)
 
@@ -56,57 +56,49 @@ def save_all():
         "wishlist": st.session_state.wishlist,
         "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]
     }
-    with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🎨 스타일 설정 (달력 투명화 및 여백 조정 핵심) ---
+# --- 🎨 스타일 설정 (모든 네모 칸 넉넉하게 및 이모지 완벽 정렬) ---
 st.markdown("""
     <style>
-    /* 폰트 크기 일치: 검색창 제목 & 목록 제목 */
-    .big-font {
-        font-size: 32px !important; /* h2 태그 크기 */
+    /* ✅ 폰트 크기 일치 */
+    .stTextInput label p, .stDateInput label p {
+        font-size: 20px !important;
         font-weight: bold !important;
-        margin-bottom: 20px !important;
-        display: block;
+        margin-bottom: 10px !important;
     }
-    
-    /* 1번 해결: ✨1권✨ 하단 구분선 및 여유로운 여백 */
-    .record-count-area {
-        text-align:center; 
-        padding: 20px 0px 10px 0px; /* 하단 패딩 살짝 줄임 */
-    }
-    .genre-area {
-        padding: 10px 10px; /* 구분선 아래 여유 */
-    }
-
-    /* 2번 해결: 달력 배경색 및 네모 테두리 제거 (투명화) */
-    .cal-box { 
-        text-align: center; 
-        line-height: 1.1; /* 줄 간격 좁힘 */
-        border: none !important; /* 네모 테두리 제거 */
-        background-color: transparent !important; /* 배경색 투명 */
-    }
-    .cal-day-num { 
-        font-size: 13px; 
-        font-weight: bold; 
-        color: #333; /* 날짜 색상 명확하게 */
-        margin-bottom: -6px; /* 이모지와 더 밀착 */
-    }
-    .cal-book-emoji { 
-        font-size: 18px; 
-        margin-top: -2px; /* 이모지 위치 미세 조정 */
-        line-height: 1;
-    }
-
-    /* 버튼 스타일 */
+    /* ✅ 모든 버튼/입력창 네모 칸 넉넉하게 및 정렬 */
     div.stButton > button, div.stDownloadButton > button {
         width: 100% !important;
-        height: 45px !important;
+        height: 45px !important; /* 높이 넉넉하게 */
+        font-size: 14px !important;
+        text-align: center;
         border-radius: 5px;
+        white-space: nowrap; /* 줄바꿈 방지 */
     }
     .stDateInput div[data-baseweb="input"] {
-        height: 45px !important;
+        height: 45px !important; /* 높이 넉넉하게 */
+        font-size: 14px !important;
         border-radius: 5px;
+    }
+    /* ✅ 달력 이모지 완벽 중앙 정렬 (flex 사용) */
+    .cal-box {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 50px; /* 적절한 높이 */
+        line-height: 1;
+    }
+    .cal-day-num {
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 2px;
+    }
+    .cal-book-emoji {
+        font-size: 18px;
+        margin-top: -2px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -115,46 +107,30 @@ st.markdown("""
 st.markdown(f"<h1>📖 {st.session_state.user_id}의 독서 기록</h1>", unsafe_allow_html=True)
 st.divider()
 
-# --- 📊 상단 대시보드 ---
-t_col1, t_col2 = st.columns([1, 2])
-with t_col1:
-    # ✨1권✨ 표시 (배경색 없음)
-    st.markdown(f"""
-    <div class="record-count-area">
-        <h3>{datetime.now().year}년 누적 독서</h3>
-        <h1 style="color:#87CEEB; font-size:60px; margin-top:10px;">✨{len(st.session_state.collection)}권✨</h1>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # 1번 해결: ✅ 구분선 추가
+# --- 📊 상단 섹션 (누적독서 & 달력 비율 조정) ---
+top_c1, top_c2 = st.columns([1, 1])
+with top_c1:
+    # 누적 독서 (배경색 없음, ✨ 추가)
+    st.markdown(f"<div style='text-align:center; padding: 20px;'><h3>{datetime.now().year}년 누적 독서</h3><h1 style='color:#87CEEB; font-size:60px;'>✨{len(st.session_state.collection)}권✨</h1></div>", unsafe_allow_html=True)
     st.divider()
-    
-    # 1번 해결: ✅ 구분선 아래 여유로운 장르 현황 (예시 제거)
-    st.markdown('<div class="genre-area">', unsafe_allow_html=True)
+    # 장르별 통계 (예시 제거)
     st.caption("📚 장르별 독서 현황")
     if st.session_state.collection:
         genres = [itm.get("genre", "미지정") for itm in st.session_state.collection]
         counts = Counter(genres)
         st.write(f"**" + ", ".join([f"{g} {c}권" for g, c in counts.items()]) + "**")
-    else:
-        st.write("**기록된 책이 없습니다.**")
-    st.markdown('</div>', unsafe_allow_html=True)
 
-with t_col2:
-    # ✅ 달력 컨트롤 (연월 제목과 같은 열)
+with top_c2:
+    # 달력 컨트롤 (연월 제목과 같은 열)
     mc1, mc2, mc3 = st.columns([1, 2, 1])
-    # 이전 달 버튼 (왼쪽 열)
     if mc1.button("◀ 이전 달", use_container_width=True):
         if st.session_state.cal_month == 1: st.session_state.cal_month = 12; st.session_state.cal_year -= 1
         else: st.session_state.cal_month -= 1; st.rerun()
-    # 연월 제목 (중앙 열)
     mc2.markdown(f"<h3 style='text-align:center; margin:0;'>📅 {st.session_state.cal_year}년 {st.session_state.cal_month}월</h3>", unsafe_allow_html=True)
-    # 다음 달 버튼 (오른쪽 열)
     if mc3.button("다음 달 ▶", use_container_width=True):
         if st.session_state.cal_month == 12: st.session_state.cal_month = 1; st.session_state.cal_year += 1
         else: st.session_state.cal_month += 1; st.rerun()
     
-    # ✅ 2번 해결: 투명한 달력 구현 (테두리/네모/배경 제거)
     cal = calendar.monthcalendar(st.session_state.cal_year, st.session_state.cal_month)
     w_cols = st.columns(7)
     for i, dname in enumerate(["일", "월", "화", "수", "목", "금", "토"]): w_cols[i].caption(dname)
@@ -165,7 +141,7 @@ with t_col2:
             if day != 0:
                 curr = date(st.session_state.cal_year, st.session_state.cal_month, day).isoformat()
                 with cols[i]:
-                    # 날짜 숫자 바로 아래에 이모지 밀착
+                    # ✅ 달력 이모지 완벽 중앙 정렬 복구
                     is_reading = False
                     for b in st.session_state.collection:
                         if b["start"] <= curr <= b["end"]: is_reading = True; break
@@ -177,7 +153,7 @@ st.divider()
 
 # --- 🔍 검색 섹션 (장르 연동 강화) ---
 # 책 제목 입력 폰트 크기 확대
-st.markdown("<span class='big-font'>📖 책 제목 입력</span>", unsafe_allow_html=True)
+st.markdown("<p style='font-size:24px; font-weight:bold;'>📖 책 제목 입력</p>", unsafe_allow_html=True)
 query = st.text_input("제목 입력", label_visibility="collapsed", placeholder="예: 먼작귀", key="search_input")
 
 if query:
@@ -185,7 +161,7 @@ if query:
     res = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}).text
     # 엑박 방지 이미지 추출
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
-    # 장르 추출 로직 강화
+    # ✅ 장르 추출 로직 강화
     genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
 
     if imgs:
@@ -194,7 +170,7 @@ if query:
             with scols[i]:
                 st.image(url, use_container_width=True)
                 genre_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                # 검색창에서는 날짜 입력을 빼고 장르만 확인
+                # ✅ 검색창에서는 날짜 입력을 빼고 장르만 확인
                 sel_genre = st.text_input("장르", value=genre_val, key=f"src_g_{i}")
                 
                 c1, c2 = st.columns(2)
@@ -213,26 +189,27 @@ st.divider()
 # --- 📚 목록 섹션 (날짜 가독성, 버튼 크기 및 시작 높이 정렬) ---
 l_col, r_col = st.columns(2)
 
-# ✅ 3번 해결: 읽은 책 모음과 위시리스트의 책 시작 높이 맞춤 (공백 활용)
+# ✅ 읽은 책 모음과 위시리스트의 책 시작 높이 맞춤 (공백 활용)
 with l_col:
-    st.markdown("<span class='big-font'>📖 읽은 책 모음</span>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:24px; font-weight:bold;'>📖 읽은 책 모음</p>", unsafe_allow_html=True)
     if st.session_state.collection:
         print_Indices = []
-        c1, c2 = st.columns(2)
-        if c1.button("🗑️ 전체 비우기"): st.session_state.collection = []; save_all(); st.rerun()
-        del_m = c2.toggle("개별 삭제 모드")
+        # ✅ 관리 버튼 일렬 정렬 완벽 복구
+        ctrl_c1, ctrl_c2 = st.columns([1, 2])
+        if ctrl_c1.button("🗑️ 전체 비우기"): st.session_state.collection = []; save_all(); st.rerun()
+        del_m = ctrl_c2.toggle("개별 삭제 모드")
         
         dcols = st.columns(3)
         for idx, itm in enumerate(st.session_state.collection):
             with dcols[idx % 3]:
-                # 세로 길이 통일
+                # ✅ 세로 길이 통일
                 sheet = Image.new('RGB', (itm["img"].size[0], TARGET_H_PX), (255, 255, 255))
                 st.image(itm["img"], use_container_width=True)
                 # 인쇄 선택 체크박스 유지
                 if st.checkbox("인쇄 선택", key=f"p_{idx}", value=True): print_Indices.append(idx)
                 
                 st.caption(f"장르: {itm.get('genre', '미지정')}")
-                # ✅ 5번 해결: 날짜 안 잘리게 넉넉한 입력창
+                # ✅ 날짜 안 잘리게 넉넉한 입력창
                 st.write("읽은 기간")
                 # 회색 날짜 입력창 하나로 통합 (확인/수정 동시 가능) (cite: image_c0b247.png)
                 new_dr = st.date_input("수정", [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])], key=f"e_d_{idx}", label_visibility="collapsed")
@@ -268,7 +245,7 @@ with l_col:
 with r_col:
     st.markdown("<span class='big-font'>🩵 위시리스트</span>", unsafe_allow_html=True)
     if st.session_state.wishlist:
-        # ✅ 3번 해결: 읽은 책 모음과 시작 높이 맞춤 (공백 추가)
+        # ✅ 시작 높이 맞춤 (공백 추가)
         st.write("") # 공백 추가
         st.write("") # 공백 추가
         wcols = st.columns(3)
