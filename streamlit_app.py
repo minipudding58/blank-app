@@ -12,10 +12,10 @@ from collections import Counter, defaultdict
 st.set_page_config(page_title="나의 독서 기록장", page_icon="📖", layout="wide")
 TARGET_H_PX = 180 
 
-# --- 🎨 2. [UI] CSS 스타일 (이미지 중앙 + 카드 배경 + 텍스트 좌측 정렬) ---
+# --- 🎨 2. [UI] CSS 스타일 (사용자 요청 레이아웃 100% 반영) ---
 st.markdown(f"""
     <style>
-    /* 입력창 및 기본 텍스트 정렬 */
+    /* 입력창 디자인 및 텍스트 정렬 */
     .stTextInput {{ text-align: left !important; }}
     div[data-baseweb="input"], input {{ 
         text-align: left !important; 
@@ -24,7 +24,7 @@ st.markdown(f"""
         border-radius: 10px !important;
     }}
 
-    /* ✅ 검색 결과 카드 스타일 (회색 배경 + 내부 이미지 중앙 정렬) */
+    /* ✅ 검색 결과 카드: 회색 배경 + 이미지 중앙 정렬 (image_f64a5b.png 반영) */
     .search-card {{
         background-color: #f8f9fb;
         border-radius: 15px;
@@ -37,17 +37,16 @@ st.markdown(f"""
         min-height: 220px;
     }}
 
-    /* 이미지 크기 및 중앙 정렬 강제 */
+    /* 이미지 중앙 정렬 강제 고정 (image_f646db.png 반영) */
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: auto !important;
         object-fit: contain !important;
         margin: 0 auto !important;
         display: block !important;
-        border-radius: 5px;
     }}
     
-    /* ✅ '분야' 라벨 및 입력창 좌측 정렬 */
+    /* ✅ '분야' 라벨 및 입력창 좌측 정렬 (image_f655da.png 반영) */
     .field-left {{ 
         width: 100%; 
         text-align: left !important; 
@@ -58,7 +57,7 @@ st.markdown(f"""
         margin-bottom: 5px;
     }}
 
-    /* ✅ '제목 없음' 투명화 (눈에 안 보이지만 데이터는 유지) */
+    /* '제목 없음' 텍스트 투명화 처리 */
     .no-title-text {{
         color: rgba(0,0,0,0) !important;
         font-size: 0px !important;
@@ -68,16 +67,34 @@ st.markdown(f"""
         user-select: none;
     }}
 
-    /* 상단 대시보드 및 통계 스타일 (절대 고정) */
-    .genre-title {{ font-size: 15px !important; color: #555; font-weight: 700; margin: 5px 0 5px 0; text-align: left !important; }}
+    /* 상단 통계 섹션 소제목 (image_f646db.png 반영) */
+    .genre-title {{ 
+        font-size: 15px !important; 
+        color: #555; 
+        font-weight: 700; 
+        margin: 5px 0 5px 0; 
+        text-align: left !important; 
+    }}
+    
     .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; min-height: 150px; display: flex; flex-direction: column; justify-content: center; }}
     .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); min-width: 90px; margin: 5px; }}
     .genre-container {{ display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: center; }}
-    .genre-subtitle {{ font-size: 20px !important; font-weight: 800 !important; color: #333; margin: 35px 0 15px 0; border-bottom: 3px solid #87CEEB; padding-bottom: 5px; width: 100%; text-align: left !important; }}
+    
+    /* 내 서재 장르별 소제목 스타일 */
+    .genre-subtitle {{ 
+        font-size: 20px !important; 
+        font-weight: 800 !important; 
+        color: #333; 
+        margin: 35px 0 15px 0; 
+        border-bottom: 3px solid #87CEEB; 
+        padding-bottom: 5px; 
+        width: 100%; 
+        text-align: left !important; 
+    }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🔗 3. 데이터 로직 ---
+# --- 🔗 3. 데이터 로직 (생략 없이 유지) ---
 if 'user_id' not in st.session_state:
     st.session_state.user_id = st.query_params.get("user", "")
 
@@ -102,23 +119,27 @@ if 'collection' not in st.session_state:
                     if r.status_code == 200:
                         st.session_state.collection.append({
                             "img": Image.open(io.BytesIO(r.content)).convert("RGB"), 
-                            "url": itm["url"], "genre": itm.get("genre", "미지정"), 
+                            "url": itm["url"], "genre": itm.get("genre", "미정"), 
                             "title": itm.get("title", "제목 없음"), 
                             "start": itm.get("start"), "end": itm.get("end")
                         })
         except: pass
 
 def save_all():
-    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "genre": i.get("genre", "미정"), "title": i.get("title", "제목 없음"), "start": i.get("start"), "end": i.get("end")} for i in st.session_state.collection]}
+    data = {
+        "wishlist": st.session_state.wishlist, 
+        "collection": [{"url": i["url"], "genre": i.get("genre", "미정"), "title": i.get("title", "제목 없음"), "start": i.get("start"), "end": i.get("end")} for i in st.session_state.collection]
+    }
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 4. 상단 대시보드 (이미지 image_f646db.png 기반 고정) ---
+# --- 🏠 4. 상단 대시보드 (image_f646db.png 반영) ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.markdown("<br><br>", unsafe_allow_html=True) 
 
 dash_col1, dash_col2 = st.columns([1, 3.5])
 with dash_col1:
     st.markdown(f'<div class="count-box"><div style="font-size:14px; color:#666; margin-bottom:5px;">{datetime.now().year}년 누적</div><div style="font-size:38px; font-weight:bold; color:#87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>', unsafe_allow_html=True)
+
 with dash_col2:
     if st.session_state.collection:
         st.markdown("<div class='genre-title'>분야별(장르별) 통계</div>", unsafe_allow_html=True)
@@ -127,7 +148,7 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (수평 4개 + 이미지 중앙/텍스트 좌측 정렬 완벽 복구) ---
+# --- 🔍 5. 검색 섹션 (image_f66125.png 그림판 4분할 수평 나열 요청 반영) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색창", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
@@ -136,6 +157,7 @@ if q:
         res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
         items = re.findall(r'<table.*?>(.*?)</table>', res, re.DOTALL)
         if items:
+            # ✅ 가로로 4개씩 배치 (사용자가 빨간색으로 그린 image_f66125.png 구조)
             for i in range(0, min(8, len(items)), 4): 
                 row_cols = st.columns(4)
                 for j in range(4):
@@ -152,19 +174,19 @@ if q:
                         found_genre = genre_m[-1] if genre_m else "미정"
                         
                         with row_cols[j]:
-                            # ✅ 이미지 중앙 정렬 및 회색 카드 배경 (image_f64a5b.png 반영)
+                            # ✅ 이미지 중앙 정렬 및 회색 배경 카드 (image_f64a5b.png 스타일)
                             st.markdown(f'<div class="search-card">', unsafe_allow_html=True)
                             st.image(url)
                             st.markdown('</div>', unsafe_allow_html=True)
                             
-                            # ✅ 제목 투명화
+                            # 제목 투명화 (내부 데이터용)
                             st.markdown(f"<div class='no-title-text'>{title}</div>", unsafe_allow_html=True)
                             
-                            # ✅ '분야' 라벨 및 입력창 좌측 정렬 (image_f655da.png 반영)
+                            # ✅ '분야' 텍스트 및 입력창 좌측 정렬 (image_f655da.png 스타일)
                             st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
                             sel_genre = st.text_input("분야수정", value=found_genre, label_visibility="collapsed", key=f"s_gen_{idx}")
                             
-                            # 기존 기능 (기간 설정) 유지
+                            # 기간 설정 (생략 없음)
                             with st.expander("📅 기간 설정"):
                                 ds = st.date_input("시작", value=date.today(), key=f"s_ds_{idx}")
                                 de = st.date_input("종료", value=date.today(), key=f"s_de_{idx}")
@@ -183,13 +205,13 @@ if q:
                                 save_all(); st.rerun()
     except: pass
 
-# --- 📚 6. 내 서재 & 위시리스트 탭 (기존 기능 완벽 유지) ---
+# --- 📚 6. 하단 목록 (내 서재 / 위시리스트 탭) ---
 st.divider()
 tab1, tab2 = st.tabs(["📚 내 서재 (분야별 목록)", "🩵 위시리스트"])
 
 with tab1:
     if st.session_state.collection:
-        edit_mode = st.toggle("삭제 모드 활성화", key="lib_edit_final")
+        edit_mode = st.toggle("삭제 모드 활성화", key="lib_edit_full")
         grouped = defaultdict(list)
         for idx, item in enumerate(st.session_state.collection):
             grouped[item.get('genre', '미정')].append((idx, item))
@@ -207,7 +229,7 @@ with tab1:
 
 with tab2:
     if st.session_state.wishlist:
-        w_edit = st.toggle("목록 제거 활성화", key="wish_edit_final")
+        w_edit = st.toggle("목록 제거 활성화", key="wish_edit_full")
         for k in range(0, len(st.session_state.wishlist), 5):
             cols = st.columns(5)
             for idx, itm in enumerate(st.session_state.wishlist[k:k+5]):
