@@ -78,13 +78,13 @@ with st.sidebar:
     st.write(f"👤 접속 중: **{st.session_state.user_id}**")
     if st.button("🚪 로그아웃", use_container_width=True):
         st.query_params.clear()
-        st.session_state.user_id = ""
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
-    st.write("---")
+    st.divider()
     if st.button("🔥 내 기록 전체 삭제", use_container_width=True):
         if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
         st.query_params.clear()
-        st.session_state.user_id = ""
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
 # --- 🏠 5. 상단 대시보드 ---
@@ -100,7 +100,7 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 6. 검색 섹션 (빈 박스 방지 로직 적용) ---
+# --- 🔍 6. 검색 섹션 (하얀 박스 완전 차단 로직) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색어 입력", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
@@ -112,8 +112,12 @@ if q:
         res.encoding = 'utf-8'
         html = res.text
         
-        # ✅ 빈 박스 방지: product/ 아래 숫자가 명확히 붙은 cover 이미지만 필터링
-        imgs = re.findall(r'src="(https://image\.aladin\.co\.kr/product/\d+/\d+/cover[^"]+)"', html)
+        # ✅ 하얀 빈 박스 완벽 차단 로직 ✅
+        # 검색 결과 본문('ss_book_box' 클래스) 안에 'cover' 단어가 포함된 <img> 태그만 추출합니다.
+        # 이미지 태그를 포함하지 않는 빈 레이아웃(하얀 박스)은 여기서 모두 걸러집니다.
+        imgs = re.findall(r'<div[^>]*class="ss_book_box".*?src="(https://image\.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', html, re.DOTALL)
+        
+        # 중복 제거
         imgs = list(dict.fromkeys(imgs))
 
         if imgs:
@@ -148,7 +152,7 @@ st.divider()
 tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab1:
     if st.session_state.collection:
-        edit_mode = st.toggle("삭제 모드")
+        edit_mode = st.toggle("삭제 모드 활성화")
         grouped = defaultdict(list)
         for idx, itm in enumerate(st.session_state.collection):
             grouped[itm.get('genre', '미정')].append((idx, itm))
