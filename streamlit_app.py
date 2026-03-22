@@ -12,7 +12,7 @@ from collections import Counter
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 TARGET_H_PX = 200 # ✅ 이미지 세로 높이 고정
 
-# --- 🎨 [UI] 스타일 설정 (사이드바/상단 유지 + 중앙 정렬 추가) ---
+# --- 🎨 [UI] 스타일 설정 (사이드바/상단 유지 + 좌측 정렬 복구) ---
 st.markdown(f"""
     <style>
     /* 검색창 빨간 테두리 제거 */
@@ -24,8 +24,8 @@ st.markdown(f"""
     }}
     .stTextInput > div > div {{ border: none !important; }}
     
-    /* ✅ 이미지 및 하단 요소 중앙 정렬 */
-    [data-testid="stImage"], [data-testid="stImage"] img {{
+    /* ✅ 책 이미지 및 하단 요소는 열 내 중앙 정렬 유지 */
+    [data-testid="stImage"] img {{
         display: block !important;
         margin-left: auto !important;
         margin-right: auto !important;
@@ -35,10 +35,18 @@ st.markdown(f"""
         border-radius: 5px;
     }}
     
-    /* 텍스트 및 캡션 중앙 정렬 */
-    .stCaption, div.stMarkdown p {{ text-align: center !important; }}
+    /* 장르 입력창 및 캡션 중앙 정렬 */
+    [data-testid="stTextInput"], .stCaption {{ text-align: center !important; }}
     
-    .section-title {{ font-size: 18px !important; font-weight: bold !important; margin-bottom: 12px; display: block; }}
+    /* ✅ 타이틀 좌측 정렬 복구 */
+    .section-title {{ 
+        font-size: 18px !important; 
+        font-weight: bold !important; 
+        margin-bottom: 12px; 
+        display: block; 
+        text-align: left !important; /* 다시 왼쪽으로 */
+    }}
+    
     .genre-card {{ background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 5px 12px; text-align: center; }}
     
     /* 사이드바 스타일 유지 */
@@ -111,13 +119,14 @@ with t_col2:
 st.divider()
 
 # --- 🔍 [수정] 책 검색 및 알라딘 분야(장르) 정밀 추출 ---
+# ✅ 타이틀 좌측 정렬 복구
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
     
-    # ✅ 도서 검색결과 블록 단위로 쪼개기 (이미지-분야 매칭 정확도 향상)
+    # ✅ 도서 검색결과 블록 단위로 쪼개기 (정확도 향상)
     items = re.findall(r'<table.*?>(.*?)</table>', res, re.DOTALL)
     
     if items:
@@ -127,16 +136,17 @@ if q:
             if count >= 4: break
             
             img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-            # ✅ 알라딘 특유의 분야 정보 추출 (예: [장르 > 세부장르])
+            # ✅ 알라딘 특유의 분야 정보 정밀 추출
             genre_match = re.search(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
             
             if img_match:
                 url = img_match.group()
+                # 이미지 인덱스에 맞춰 추출한 장르 정보 연동 강화
                 found_genre = genre_match.group(1) if genre_match else "미지정"
                 
                 with scols[count]:
-                    st.image(url, use_container_width=True) # CSS 중앙 정렬 적용됨
-                    sel_genre = st.text_input("분야", value=found_genre, key=f"sg_{count}", label_visibility="collapsed")
+                    st.image(url, use_container_width=True) # CSS에서 중앙 정렬됨
+                    sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{count}", label_visibility="collapsed")
                     
                     b_cols = st.columns(2)
                     if b_cols[0].button("📖 읽음", key=f"r_{count}", use_container_width=True):
@@ -149,9 +159,10 @@ if q:
 
 st.divider()
 
-# --- 📚 하단 기록 목록 (중앙 정렬 유지) ---
+# --- 📚 하단 기록 목록 (좌측 정렬 복구) ---
 l_col, r_col = st.columns(2)
 with l_col:
+    # ✅ 타이틀 좌측 정렬 복구
     st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
     if st.session_state.collection:
         del_m = st.toggle("개별 삭제 모드")
@@ -164,6 +175,7 @@ with l_col:
                     st.session_state.collection.pop(idx); save_all(); st.rerun()
 
 with r_col:
+    # ✅ 타이틀 좌측 정렬 복구
     st.markdown("<span class='section-title'>🩵 위시리스트</span>", unsafe_allow_html=True)
     if st.session_state.wishlist:
         wcols = st.columns(3)
