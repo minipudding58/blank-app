@@ -45,20 +45,26 @@ def load_all():
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# --- 🎨 스타일 설정 (PDF 버튼 색상 #FDEDED) ---
+# --- 🎨 스타일 설정 (PDF 버튼 색상 #B0FFFA 및 위시리스트 버튼 폰트 조절) ---
 st.markdown("""
     <style>
     .stCaption { display:none; }
+    /* PDF 다운로드 버튼 커스텀 */
     div.stDownloadButton > button {
         width: 100%;
-        background-color: #FDEDED !important;
+        background-color: #B0FFFA !important;
         color: #333333 !important;
         font-weight: bold;
-        border: 1px solid #f0d0d0;
+        border: 1px solid #90e0db;
         border-radius: 8px;
     }
     div.stDownloadButton > button:hover {
-        background-color: #fce1e1 !important;
+        background-color: #98f5ef !important;
+    }
+    /* 위시리스트 버튼 글자 크기 축소 (줄바꿈 방지) */
+    div[data-testid="stHorizontalBlock"] button p {
+        font-size: 13px !important;
+        white-space: nowrap !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -80,13 +86,13 @@ if query:
                 with cols[i % 4]:
                     st.image(img_url, use_container_width=True)
                     c1, c2 = st.columns(2)
-                    if c1.button("📖 읽은 책", key=f"s_{i}"):
+                    if c1.button("📖 스티커", key=f"s_{i}"):
                         r = requests.get(img_url)
                         img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
                         st.session_state.collection.append({"img": img_obj, "url": img_url})
                         save_all()
                         st.rerun()
-                    if c2.button("💕 위시", key=f"w_{i}"):
+                    if c2.button("🩵 위시", key=f"w_{i}"):
                         if not any(d['url'] == img_url for d in st.session_state.wishlist):
                             st.session_state.wishlist.append({"url": img_url, "done": False})
                             save_all()
@@ -141,9 +147,9 @@ with left_col:
             st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
     else: st.info("읽은 책을 추가해 보세요!")
 
-# --- 📚 오른쪽: 위시리스트 (요청하신 버튼 디자인 적용) ---
+# --- 📚 오른쪽: 위시리스트 (아이콘 및 줄바꿈 최적화) ---
 with right_col:
-    st.header("💕 위시리스트")
+    st.header("🩵 위시리스트")
     if st.session_state.wishlist:
         wcols = st.columns(3)
         for i, item in enumerate(st.session_state.wishlist):
@@ -152,12 +158,12 @@ with right_col:
                     st.image(item['url'], use_container_width=True)
                     ic1, ic2 = st.columns(2)
                     
-                    # 💡 선택 버튼 (누르면 읽은 책에 추가)
+                    # 💡 선택 버튼 (폰트 조절로 줄바꿈 방지)
                     btn_label = "✅ 완료" if item['done'] else "📖 선택"
                     if ic1.button(btn_label, key=f"chk_{i}", use_container_width=True):
                         new_status = not item['done']
                         st.session_state.wishlist[i]['done'] = new_status
-                        if new_status: # 체크할 때만 추가
+                        if new_status:
                             r = requests.get(item['url'])
                             img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
                             if not any(d['url'] == item['url'] for d in st.session_state.collection):
