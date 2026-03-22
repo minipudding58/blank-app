@@ -1,118 +1,173 @@
 import streamlit as st
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import io
 
-# 📏 규격 설정 (300 DPI 기준 세로 4cm)
+# DPI 설정 (300 DPI 기준, 인쇄 시 고화질 보장)
 DPI = 300
+# 세로 4cm를 픽셀로 변환 (약 472픽셀)
 TARGET_H_PX = int((40 / 25.4) * DPI)
 
-st.set_page_config(page_title="나만의 독서 스티커 메이커", page_icon="📖")
+# 🎨 제목 & 스타일 설정 (사용자 선택 기능 강조!)
+st.set_page_config(page_title="나만의 독서 스티커 메이커", page_icon="📖", layout="wide")
 
-if 'selected_images' not in st.session_state:
-    st.session_state.selected_images = {}
-if 'temp_results' not in st.session_state:
-    st.session_state.temp_results = {}
+# (기존 코드를 아래 내용으로 싹 지우고 붙여넣으세요!)
+# --- [여기서부터 복사] ---
+import streamlit as st
+import requests
+from PIL import Image, ImageDraw, ImageFont
+import io
 
-def get_korean_book_covers(title):
-    """국내 도서 검색에 최적화된 알라딘/구글 혼합 검색"""
-    clean_title = title.strip()
-    results = []
-    seen_urls = set()
+# 🎨 세션 상태 초기화 (검색 결과 및 선택 이미지 저장용)
+if 'search_results' not in st.session_state:
+    st.session_state.search_results = {} # {제목: [이미지1, 이미지2, ...]}
+if 'selected_covers' not in st.session_state:
+    st.session_state.selected_covers = {} # {제목: 선택된_이미지}
+
+# --- ✨ 핵심 업데이트 1: 고해상도 이미지 가져오기 ---
+def get_high_res_image(isbn):
+    """
+    구글 북스 API를 사용하여 ISBN 기반의 고해상도 이미지를 가져옵니다.
+    """
+    # 1. 고해상도 이미지 소스를 우선 탐색
+    url_templates = [
+        f"https://books.google.com/books/content?id={isbn}&printsec=frontcover&img=1&zoom=3", # 최고 해상도
+        f"https://books.google.com/books/content?id={isbn}&printsec=frontcover&img=1&zoom=2", # 고해상도
+    ]
     
-    # 1. 알라딘 검색 (국내 도서 최신 표지용)
-    # 알라딘 오픈 API는 키가 필요하므로, 공개된 이미지 서버 경로를 우선 탐색합니다.
-    search_url = f"https://www.googleapis.com/books/v1/volumes?q={clean_title}&maxResults=10&country=KR"
-    
-    try:
-        res = requests.get(search_url, timeout=5).json()
-        for item in res.get("items", []):
-            info = item.get("volumeInfo", {})
-            # ISBN 추출
-            isbns = info.get("industryIdentifiers", [])
-            isbn13 = next((i["identifier"] for i in isbns if i["type"] == "ISBN_13"), None)
+    for url in url_templates:
+        try:
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200 and 'image' in response.headers.get('Content-Type', ''):
+                img = Image.open(io.BytesIO(response.content))
+                # 너무 작거나 로딩 실패 이미지는 거름
+                if img.size[0] > 100: 
+                    return img
+        except:
+            pass
             
-            # ISBN이 있다면 알라딘 고화질 서버 주소 생성
-            if isbn13:
-                # 알라딘 대형 표지 주소 규칙
-                img_url = f"https://image.aladin.co.kr/product/{isbn13[:5]}/{isbn13[5:7]}/cover500/{isbn13}.jpg"
-                # 주소가 유효한지 확인
-                check = requests.head(img_url, timeout=2)
-                if check.status_code != 200: # 알라딘에 없으면 구글 이미지로 대체
-                    links = info.get("imageLinks", {})
-                    img_url = links.get("extraLarge") or links.get("large") or links.get("thumbnail")
-            else:
-                links = info.get("imageLinks", {})
-                img_url = links.get("extraLarge") or links.get("large") or links.get("thumbnail")
-
-            if img_url and img_url not in seen_urls:
-                final_url = img_url.replace("http://", "https://")
-                # 구글 이미지일 경우 화질 높이기
-                if "google" in final_url: final_url += "&fife=w800"
-                
-                results.append({
-                    "url": final_url,
-                    "title": info.get("title", "제목 없음"),
-                    "date": info.get("publishedDate", "미상")[:4]
-                })
-                seen_urls.add(img_url)
+    # 2. 실패 시 차선책 (알라딘 API - 국내 도서에 강함)
+    try:
+        # (실제 서비스에서는 알라딘 API 키가 필요하지만, 우선 우회 방법을 시도)
+        aladdin_url = f"https://www.aladdin.co.kr/shop/common/wn_cover.aspx?ISBN={isbn}&Size=Big"
+        response = requests.get(aladdin_url, timeout=10)
+        if response.status_code == 200:
+            return Image.open(io.BytesIO(response.content))
     except:
         pass
-    return results
-
-st.title("📖 나만의 독서 스티커 메이커")
-
-# --- 💡 요청 반영 1: 예시 목록 위치 상단으로 ---
-st.markdown("💡 **입력 예시:** `불편한 편의점 / 파친코 / 슬램덩크` (구분은 **/** 로)")
-
-# --- 💡 요청 반영 2: 엔터 치면 바로 검색되는 한 줄 입력창 ---
-# on_change를 쓰지 않아도 text_input은 엔터 치면 폼이 제출됩니다.
-titles_input = st.text_input("책 제목들을 입력하고 **Enter**를 누르세요!", placeholder="여기에 입력하세요...")
-
-if titles_input:
-    titles = [t.strip() for t in titles_input.split("/") if t.strip()]
-    # 검색 버튼을 누르거나 엔터를 쳤을 때만 새로 검색
-    with st.spinner('국내 도서관에서 최신 표지를 찾는 중...'):
-        st.session_state.temp_results = {title: get_search_results(title) if 'get_search_results' in globals() else get_korean_book_covers(title) for title in titles}
-
-# 결과 선택창
-if st.session_state.temp_results:
-    for title, results in st.session_state.temp_results.items():
-        st.markdown(f"### 📍 '{title}' 검색 결과")
-        if not results:
-            st.error(f"'{title}' 결과를 찾지 못했습니다. 작가 이름을 같이 써보세요!")
-            continue
         
-        cols = st.columns(4)
-        for idx, res in enumerate(results):
-            with cols[idx % 4]:
-                st.image(res['url'], use_container_width=True)
-                st.caption(f"{res['date']}년")
-                if st.button("선택", key=f"btn_{title}_{idx}"):
-                    st.session_state.selected_images[title] = res['url']
-                    st.toast(f"'{title}' 담기 완료!")
+    return None # 모두 실패 시
 
-# 최종 스티커 생성 (세로 4cm)
-if st.session_state.selected_images:
+# --- ✨ 핵심 업데이트 2: 다중 검색 결과 가져오기 ---
+def search_book_covers(title):
+    """
+    구글 북스 API를 통해 제목으로 검색하고, 여러 표지 이미지를 가져옵니다.
+    """
+    # API 키 없이 검색 (결과 수가 제한적일 수 있음)
+    search_url = f"https://www.googleapis.com/books/v1/volumes?q={title}"
+    try:
+        response = requests.get(search_url, timeout=10).json()
+        covers = []
+        if 'items' in response:
+            for item in response['items'][:5]: # 상위 5개 결과만
+                volume_info = item.get('volumeInfo', {})
+                isbn = volume_info.get('industryIdentifiers', [{}])[0].get('identifier', None)
+                if isbn:
+                    img = get_high_res_image(isbn)
+                    if img:
+                        covers.append({'isbn': isbn, 'image': img, 'title': volume_info.get('title', title), 'publishedDate': volume_info.get('publishedDate', '날짜 정보 없음')})
+        return covers
+    except:
+        pass
+    return []
+
+# --- 나머지 코드 (스티커 판 만들기 등) ---
+st.title("📖 나만의 독서 스티커 메이커")
+st.write("다이어리에 딱 맞는 세로 4cm 책 표지 스티커를 만들어보세요! (최신 버전 & 다중 선택 기능✨)")
+
+titles_input = st.text_area("책 제목을 쉼표(,)로 구분해서 입력해주세요.", height=150, placeholder="예: 불편한 편의점, 슬램덩크 리소스")
+
+# 🔍 책 표지 검색 및 선택 섹션
+if st.button("책 표지 검색 🔍"):
+    if not titles_input:
+        st.warning("책 제목을 입력해주세요!")
+    else:
+        titles = [t.strip() for t in titles_input.split(',') if t.strip()]
+        st.session_state.search_results = {} # 검색 결과 초기화
+        for title in titles:
+            st.session_state.search_results[title] = search_book_covers(title)
+
+if st.session_state.search_results:
     st.divider()
-    if st.button("세로 4cm 스티커 판 만들기 ✨"):
+    st.subheader("🖼️ 검색 결과 (원하는 표지를 선택하세요)")
+    
+    for title, results in st.session_state.search_results.items():
+        st.markdown(f"**📍 '{title}' 검색 결과**")
+        if not results:
+            st.error(f"'{title}' 결과를 찾지 못했습니다. 제목을 더 정확하게 써보시겠어요?")
+            continue
+            
+        cols = st.columns(len(results))
+        for idx, res in enumerate(results):
+            with cols[idx]:
+                st.image(res['image'], use_container_width=True)
+                st.caption(f"{res['publishedDate']}")
+                if st.button("이 표지 선택", key=f"btn_{res['isbn']}"):
+                    st.session_state.selected_covers[title] = res['image']
+                    st.success(f"'{title}' 표지 선택 완료!")
+    
+    st.divider()
+
+# 🖨️ 스티커 판 생성 및 인쇄 섹션
+st.subheader("✅ 선택된 표지 목록")
+if st.session_state.selected_covers:
+    selected_cols = st.columns(len(st.session_state.selected_covers))
+    for idx, (title, img) in enumerate(st.session_state.selected_covers.items()):
+        with selected_cols[idx]:
+            st.image(img, caption=title, use_container_width=True)
+else:
+    st.write("아직 선택된 표지가 없습니다.")
+
+if st.button("선택된 표지로 스티커 판 만들기 ✨"):
+    if not st.session_state.selected_covers:
+        st.error("먼저 표지를 하나 이상 선택해주세요!")
+    else:
+        # A4 사이즈 (300 DPI 기준)
         a4_w, a4_h = int((210/25.4)*DPI), int((297/25.4)*DPI)
         sheet = Image.new('RGB', (a4_w, a4_h), (255, 255, 255))
-        curr_x, curr_y, margin = 100, 100, 40
         
-        for title, url in st.session_state.selected_images.items():
-            img_res = requests.get(url)
-            img = Image.open(io.BytesIO(img_res.content))
-            ratio = TARGET_H_PX / float(img.size[1])
-            img_resized = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
+        curr_x, curr_y = 100, 100 # 여백
+        margin = 40
+        
+        with st.spinner('세로 4cm로 예쁘게 정렬하는 중...'):
+            for title, img in st.session_state.selected_covers.items():
+                # 세로 4cm 고정 이미지 처리
+                ratio = TARGET_H_PX / float(img.size[1])
+                target_w_px = int(float(img.size[0]) * ratio)
+                img_resized = img.resize((target_w_px, TARGET_H_PX), Image.LANCZOS)
+                
+                # 다음 줄로 넘기기
+                if curr_x + target_w_px > a4_w - 100:
+                    curr_x = 100
+                    curr_y += TARGET_H_PX + margin
+                    
+                sheet.paste(img_resized, (curr_x, curr_y))
+                curr_x += target_w_px + margin
             
-            if curr_x + img_resized.size[0] > a4_w - 100:
-                curr_x = 100
-                curr_y += TARGET_H_PX + margin
-            sheet.paste(img_resized, (curr_x, curr_y))
-            curr_x += img_resized.size[0] + margin
-            
+        # 결과 보여주기
+        st.balloons()
         st.image(sheet, caption="인쇄용 미리보기 (A4)", use_container_width=True)
+        
+        # 다운로드 버튼
         buf = io.BytesIO()
         sheet.save(buf, format="PNG")
-        st.download_button("📥 인쇄용 이미지 다운로드", buf.getvalue(), "my_stickers.png", "image/png")
+        st.download_button(
+            label="📥 인쇄용 이미지 다운로드",
+            data=buf.getvalue(),
+            file_name="my_stickers.png",
+            mime="image/png"
+        )
+
+st.divider()
+st.caption("제작: 사용자님의 끈기로 완성된 AI 조수 | 이미지 출처: 구글 북스, 알라딘")
+# --- [여기까지 복사] ---
