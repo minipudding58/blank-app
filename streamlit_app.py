@@ -22,21 +22,17 @@ st.markdown(f"""
     }}
     .search-card {{
         background-color: #f8f9fb; border-radius: 15px; padding: 20px;
-        display: flex; flex-direction: column; align-items: center !important; 
+        display: flex; flex-direction: column; align-items: center; 
         justify-content: center; margin-bottom: 10px; min-height: 230px; width: 100%;
     }}
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important; width: auto !important;
         object-fit: contain !important; margin: 0 auto !important; display: block !important;
     }}
-    .field-left {{ 
-        width: 100%; text-align: left !important; font-size: 14px; 
-        color: #444; font-weight: 600; margin-top: 15px; margin-bottom: 5px;
-    }}
-    .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; display: flex; flex-direction: column; justify-content: center; }}
+    .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; }}
     .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 10px; text-align: center; min-width: 80px; margin: 5px; }}
-    .genre-container {{ display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: center; }}
-    .genre-subtitle {{ font-size: 18px !important; font-weight: 800 !important; border-bottom: 3px solid #87CEEB; padding-bottom: 5px; width: 100%; text-align: left !important; }}
+    .genre-container {{ display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; }}
+    .genre-subtitle {{ font-size: 18px !important; font-weight: 800 !important; border-bottom: 3px solid #87CEEB; padding-bottom: 5px; width: 100%; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -82,16 +78,16 @@ with st.sidebar:
     st.write(f"👤 접속 중: **{st.session_state.user_id}**")
     if st.button("🚪 로그아웃", use_container_width=True):
         st.query_params.clear()
-        for key in list(st.session_state.keys()): del st.session_state[key]
+        st.session_state.user_id = ""
         st.rerun()
     st.write("---")
     if st.button("🔥 내 기록 전체 삭제", use_container_width=True):
         if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
         st.query_params.clear()
-        for key in list(st.session_state.keys()): del st.session_state[key]
+        st.session_state.user_id = ""
         st.rerun()
 
-# --- 🏠 5. 상단 대시보드 (통계 유지) ---
+# --- 🏠 5. 상단 대시보드 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 dash_col1, dash_col2 = st.columns([1, 3.5])
 with dash_col1:
@@ -104,7 +100,7 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 6. 검색 섹션 (이미지 중심 검색) ---
+# --- 🔍 6. 검색 섹션 (빈 박스 방지 로직 적용) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색어 입력", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
@@ -116,8 +112,8 @@ if q:
         res.encoding = 'utf-8'
         html = res.text
         
-        # 이미지 위주로 빠르게 추출
-        imgs = re.findall(r'src="(https://image\.aladin\.co\.kr/[^"]+cover[^"]+)"', html)
+        # ✅ 빈 박스 방지: product/ 아래 숫자가 명확히 붙은 cover 이미지만 필터링
+        imgs = re.findall(r'src="(https://image\.aladin\.co\.kr/product/\d+/\d+/cover[^"]+)"', html)
         imgs = list(dict.fromkeys(imgs))
 
         if imgs:
@@ -131,8 +127,7 @@ if q:
                             st.markdown('<div class="search-card">', unsafe_allow_html=True)
                             st.image(img_url)
                             st.markdown('</div>', unsafe_allow_html=True)
-                            st.markdown("<div class='field-left'>분야(장르) 입력</div>", unsafe_allow_html=True)
-                            g_input = st.text_input("장르입력", value="미정", label_visibility="collapsed", key=f"s_gen_{idx}")
+                            g_input = st.text_input("장르", value="미정", key=f"s_gen_{idx}", label_visibility="collapsed")
                             
                             b_r, b_w = st.columns(2)
                             if b_r.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
@@ -153,7 +148,7 @@ st.divider()
 tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab1:
     if st.session_state.collection:
-        edit_mode = st.toggle("삭제 모드 활성화")
+        edit_mode = st.toggle("삭제 모드")
         grouped = defaultdict(list)
         for idx, itm in enumerate(st.session_state.collection):
             grouped[itm.get('genre', '미정')].append((idx, itm))
