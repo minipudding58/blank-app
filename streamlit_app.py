@@ -15,7 +15,7 @@ TARGET_H_PX = 180
 # --- 🎨 2. [UI] CSS 스타일 (사용자 요청 레이아웃 100% 반영) ---
 st.markdown(f"""
     <style>
-    /* 입력창 디자인 및 텍스트 정렬 */
+    /* 입력창 및 텍스트 정렬 */
     .stTextInput {{ text-align: left !important; }}
     div[data-baseweb="input"], input {{ 
         text-align: left !important; 
@@ -35,9 +35,10 @@ st.markdown(f"""
         justify-content: center;
         margin-bottom: 10px;
         min-height: 220px;
+        width: 100%;
     }}
 
-    /* 이미지 중앙 정렬 강제 고정 (image_f646db.png 반영) */
+    /* 이미지 중앙 정렬 고정 */
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: auto !important;
@@ -57,13 +58,11 @@ st.markdown(f"""
         margin-bottom: 5px;
     }}
 
-    /* '제목 없음' 텍스트 투명화 처리 */
+    /* 제목 없음 투명화 */
     .no-title-text {{
         color: rgba(0,0,0,0) !important;
         font-size: 0px !important;
         line-height: 0px !important;
-        margin: 0 !important;
-        padding: 0 !important;
         user-select: none;
     }}
 
@@ -80,7 +79,6 @@ st.markdown(f"""
     .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.04); min-width: 90px; margin: 5px; }}
     .genre-container {{ display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-start; align-items: center; }}
     
-    /* 내 서재 장르별 소제목 스타일 */
     .genre-subtitle {{ 
         font-size: 20px !important; 
         font-weight: 800 !important; 
@@ -94,7 +92,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🔗 3. 데이터 로직 (생략 없이 유지) ---
+# --- 🔗 3. 데이터 로직 ---
 if 'user_id' not in st.session_state:
     st.session_state.user_id = st.query_params.get("user", "")
 
@@ -132,7 +130,7 @@ def save_all():
     }
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 4. 상단 대시보드 (image_f646db.png 반영) ---
+# --- 🏠 4. 상단 대시보드 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.markdown("<br><br>", unsafe_allow_html=True) 
 
@@ -148,97 +146,87 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (image_f66125.png 그림판 4분할 수평 나열 요청 반영) ---
+# --- 🔍 5. 검색 섹션 (로직 보강 및 4분할 레이아웃) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색창", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
 if q:
     try:
-        res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
-        items = re.findall(r'<table.*?>(.*?)</table>', res, re.DOTALL)
-        if items:
-            # ✅ 가로로 4개씩 배치 (사용자가 빨간색으로 그린 image_f66125.png 구조)
-            for i in range(0, min(8, len(items)), 4): 
+        # ✅ 검색 결과 추출 로직 강화
+        search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}"
+        res_text = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}).text
+        
+        # 각 책 정보를 담고 있는 테이블 섹션을 더 정확하게 추출
+        items = re.findall(r'<table width="100%".*?>(.*?)</table>', res_text, re.DOTALL)
+        
+        valid_books = []
+        for itm_html in items:
+            img_m = re.search(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', itm_html)
+            title_m = re.search(r'class="bo3"><b>(.*?)</b>', itm_html)
+            genre_m = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', itm_html)
+            
+            if img_m and title_m:
+                valid_books.append({
+                    "url": img_m.group(1),
+                    "title": title_m.group(1),
+                    "genre": genre_m[-1] if genre_m else "미정"
+                })
+
+        if valid_books:
+            # ✅ 4분할 수평 나열 (image_f66125.png 반영)
+            for i in range(0, min(12, len(valid_books)), 4): 
                 row_cols = st.columns(4)
                 for j in range(4):
                     idx = i + j
-                    if idx >= len(items): break
-                    item_html = items[idx]
-                    title_m = re.search(r'class="bo3"><b>(.*?)</b>', item_html)
-                    img_m = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-                    genre_m = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
+                    if idx >= len(valid_books): break
+                    book = valid_books[idx]
                     
-                    if img_m:
-                        title = title_m.group(1) if title_m else "제목 없음"
-                        url = img_m.group()
-                        found_genre = genre_m[-1] if genre_m else "미정"
+                    with row_cols[j]:
+                        st.markdown(f'<div class="search-card">', unsafe_allow_html=True)
+                        st.image(book["url"])
+                        st.markdown('</div>', unsafe_allow_html=True)
                         
-                        with row_cols[j]:
-                            # ✅ 이미지 중앙 정렬 및 회색 배경 카드 (image_f64a5b.png 스타일)
-                            st.markdown(f'<div class="search-card">', unsafe_allow_html=True)
-                            st.image(url)
-                            st.markdown('</div>', unsafe_allow_html=True)
-                            
-                            # 제목 투명화 (내부 데이터용)
-                            st.markdown(f"<div class='no-title-text'>{title}</div>", unsafe_allow_html=True)
-                            
-                            # ✅ '분야' 텍스트 및 입력창 좌측 정렬 (image_f655da.png 스타일)
-                            st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
-                            sel_genre = st.text_input("분야수정", value=found_genre, label_visibility="collapsed", key=f"s_gen_{idx}")
-                            
-                            # 기간 설정 (생략 없음)
-                            with st.expander("📅 기간 설정"):
-                                ds = st.date_input("시작", value=date.today(), key=f"s_ds_{idx}")
-                                de = st.date_input("종료", value=date.today(), key=f"s_de_{idx}")
-                            
-                            b_r, b_w = st.columns(2)
-                            if b_r.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
-                                img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                                st.session_state.collection.append({
-                                    "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
-                                    "url": url, "genre": sel_genre, "title": title, 
-                                    "start": ds.isoformat(), "end": de.isoformat()
-                                })
-                                save_all(); st.rerun()
-                            if b_w.button("🩵 위시", key=f"s_bw_{idx}", use_container_width=True):
-                                st.session_state.wishlist.append({"url": url, "genre": sel_genre, "title": title})
-                                save_all(); st.rerun()
-    except: pass
+                        st.markdown(f"<div class='no-title-text'>{book['title']}</div>", unsafe_allow_html=True)
+                        st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
+                        sel_genre = st.text_input("분야수정", value=book["genre"], label_visibility="collapsed", key=f"s_gen_{idx}")
+                        
+                        with st.expander("📅 기간 설정"):
+                            ds = st.date_input("시작", value=date.today(), key=f"s_ds_{idx}")
+                            de = st.date_input("종료", value=date.today(), key=f"s_de_{idx}")
+                        
+                        b_r, b_w = st.columns(2)
+                        if b_r.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
+                            img_data = requests.get(book["url"], headers={"User-Agent": "Mozilla/5.0"}).content
+                            st.session_state.collection.append({
+                                "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
+                                "url": book["url"], "genre": sel_genre, "title": book["title"], 
+                                "start": ds.isoformat(), "end": de.isoformat()
+                            })
+                            save_all(); st.rerun()
+                        if b_w.button("🩵 위시", key=f"s_bw_{idx}", use_container_width=True):
+                            st.session_state.wishlist.append({"url": book["url"], "genre": sel_genre, "title": book["title"]})
+                            save_all(); st.rerun()
+        else:
+            st.warning("검색 결과가 없습니다. 제목을 다시 확인해주세요.")
+    except Exception as e:
+        st.error(f"검색 중 오류 발생: {e}")
 
-# --- 📚 6. 하단 목록 (내 서재 / 위시리스트 탭) ---
+# --- 📚 6. 하단 목록 ---
 st.divider()
-tab1, tab2 = st.tabs(["📚 내 서재 (분야별 목록)", "🩵 위시리스트"])
-
+tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab1:
     if st.session_state.collection:
-        edit_mode = st.toggle("삭제 모드 활성화", key="lib_edit_full")
+        edit_mode = st.toggle("삭제 모드 활성화", key="lib_edit_final")
         grouped = defaultdict(list)
         for idx, item in enumerate(st.session_state.collection):
             grouped[item.get('genre', '미정')].append((idx, item))
-        
         for g_name, g_items in grouped.items():
-            st.markdown(f"<div class='genre-subtitle'>{g_name} ({len(g_items)}권)</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='genre-subtitle'>{g_name}</div>", unsafe_allow_html=True)
             for k in range(0, len(g_items), 5):
                 cols = st.columns(5)
                 for c_idx, (orig_idx, itm) in enumerate(g_items[k:k+5]):
                     with cols[c_idx]:
                         st.image(itm["img"], use_container_width=True)
                         st.caption(f"**{itm['title'][:10]}**")
-                        if edit_mode and st.button("❌", key=f"del_lib_{orig_idx}", use_container_width=True):
+                        if edit_mode and st.button("❌", key=f"del_lib_{orig_idx}"):
                             st.session_state.collection.pop(orig_idx); save_all(); st.rerun()
-
-with tab2:
-    if st.session_state.wishlist:
-        w_edit = st.toggle("목록 제거 활성화", key="wish_edit_full")
-        for k in range(0, len(st.session_state.wishlist), 5):
-            cols = st.columns(5)
-            for idx, itm in enumerate(st.session_state.wishlist[k:k+5]):
-                with cols[idx]:
-                    try:
-                        w_r = requests.get(itm["url"], timeout=5, headers={"User-Agent": "Mozilla/5.0"})
-                        if w_r.status_code == 200:
-                            st.image(Image.open(io.BytesIO(w_r.content)), use_container_width=True)
-                            st.caption(itm["title"][:10])
-                            if w_edit and st.button("🗑️", key=f"del_wish_{idx}", use_container_width=True):
-                                st.session_state.wishlist.pop(idx); save_all(); st.rerun()
-                    except: pass
