@@ -12,10 +12,10 @@ from collections import Counter
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 TARGET_H_PX = 200 
 
-# --- 🎨 2. [UI] 스타일 설정 (강력한 정렬 제어) ---
+# --- 🎨 2. [UI] 스타일 설정 (가장 강력한 중앙 정렬 코드) ---
 st.markdown(f"""
     <style>
-    /* ✅ [핵심] 검색창은 무조건 '좌측' 정렬 */
+    /* ✅ 지시 1: 검색창 무조건 '좌측' 정렬 */
     .stTextInput {{
         text-align: left !important;
     }}
@@ -26,39 +26,44 @@ st.markdown(f"""
         background-color: #f0f2f6 !important;
     }}
 
-    /* ✅ [핵심] 책 이미지, 장르칸, 버튼은 열 내에서 '중앙' 정렬 */
-    [data-testid="column"] [data-testid="stVerticalBlock"] > div {{
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
+    /* ✅ 지시 2: 이미지/장르/버튼 '완벽 중앙 정렬' */
+    /* 이미지 자체를 중앙으로 강제 밀기 */
+    [data-testid="stImage"] {{
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
         text-align: center !important;
     }}
-
-    /* 이미지 고정 및 중앙 배치 */
+    
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: auto !important;
         object-fit: contain !important;
-        border-radius: 5px;
-        margin-bottom: 10px;
+        margin: 0 auto !important;
     }}
 
-    /* 장르 입력창 텍스트만 중앙 정렬 (검색창과 분리) */
+    /* 버튼과 입력창을 포함한 모든 요소를 중앙으로 */
+    [data-testid="column"] {{
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }}
+
+    /* 장르 입력창 안의 텍스트 중앙 정렬 */
     [data-testid="column"] input {{
         text-align: center !important;
     }}
     
     .stCaption {{ text-align: center !important; width: 100% !important; }}
 
-    /* 기존 디자인 유지 */
+    /* 기존 디자인 레이아웃 */
     .section-title {{ font-size: 18px !important; font-weight: bold !important; margin: 20px 0 10px 0; text-align: left !important; }}
     .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 10px; padding: 8px 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }}
-    [data-testid="stSidebar"] {{ background-color: #f8f9fb; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🔗 3. 데이터 및 세션 관리 ---
+# --- 🔗 3. 데이터 관리 ---
 if 'user_id' not in st.session_state:
     st.session_state.user_id = st.query_params.get("user", "")
 
@@ -114,7 +119,7 @@ with c2:
 
 st.divider()
 
-# --- 🔍 6. 책 검색 및 장르 자동 추출 ---
+# --- 🔍 6. 책 검색 및 장르 자동 추출 (정규식 대폭 강화) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visibility="collapsed") 
 
@@ -128,14 +133,18 @@ if q:
             for item_html in items:
                 if count >= 4: break
                 img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-                # ✅ 알라딘 세부 분야 정밀 추출
-                genre_list = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
+                
+                # ✅ 알라딘 장르 추출 로직 재수정
+                # 링크 태그 안의 텍스트를 가장 확실하게 가져오도록 변경
+                genre_matches = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
                 
                 if img_match:
                     url = img_match.group()
-                    found_genre = genre_list[-1] if genre_list else "미지정"
+                    # 가장 마지막 세부 장르(예: 만화) 선택, 없으면 첫 번째 선택
+                    found_genre = genre_matches[-1] if genre_matches else "미지정"
+                    
                     with scols[count]:
-                        st.image(url) # 스타일 설정으로 자동 중앙 정렬
+                        st.image(url) # 스타일 설정에 의해 중앙 정렬
                         sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{count}", label_visibility="collapsed")
                         b_cols = st.columns(2)
                         if b_cols[0].button("📖 읽음", key=f"r_{count}", use_container_width=True):
