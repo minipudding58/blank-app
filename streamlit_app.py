@@ -12,44 +12,30 @@ from collections import Counter, defaultdict
 st.set_page_config(page_title="나의 독서 기록장", page_icon="📖", layout="wide")
 TARGET_H_PX = 180
 
-# --- 🎨 2. [UI] CSS 스타일 (원본 디자인 유지) ---
+# --- 🎨 2. [UI] CSS 스타일 (원본 유지) ---
 st.markdown(f"""
     <style>
     .stTextInput {{ text-align: left !important; }}
     div[data-baseweb="input"], input {{ 
-        text-align: left !important; 
-        border: none !important; 
-        background-color: #f0f2f6 !important; 
-        border-radius: 10px !important;
+        text-align: left !important; border: none !important; 
+        background-color: #f0f2f6 !important; border-radius: 10px !important;
     }}
     .search-card {{
-        background-color: #f8f9fb;
-        border-radius: 15px;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center !important; 
-        justify-content: center;
-        margin-bottom: 10px;
-        min-height: 230px;
-        width: 100%;
+        background-color: #f8f9fb; border-radius: 15px; padding: 20px;
+        display: flex; flex-direction: column; align-items: center !important; 
+        justify-content: center; margin-bottom: 10px; min-height: 230px; width: 100%;
     }}
     [data-testid="stImage"] img {{
-        height: {TARGET_H_PX}px !important;
-        width: auto !important;
-        object-fit: contain !important;
-        margin: 0 auto !important;
-        display: block !important;
+        height: {TARGET_H_PX}px !important; width: auto !important;
+        object-fit: contain !important; margin: 0 auto !important; display: block !important;
     }}
     .field-left {{ 
         width: 100%; text-align: left !important; font-size: 14px; 
         color: #444; font-weight: 600; margin-top: 15px; margin-bottom: 5px;
     }}
     .no-title-text {{
-        color: rgba(0,0,0,0) !important;
-        font-size: 0px !important;
-        line-height: 0px !important;
-        user-select: none;
+        color: rgba(0,0,0,0) !important; font-size: 0px !important;
+        line-height: 0px !important; user-select: none;
     }}
     .count-box {{ text-align: center; padding: 25px; background: #f8f9fb; border-radius: 20px; border: 1px solid #eee; display: flex; flex-direction: column; justify-content: center; }}
     .genre-card {{ background-color: #ffffff; border: 1px solid #eee; border-radius: 15px; padding: 15px; text-align: center; min-width: 90px; margin: 5px; }}
@@ -109,39 +95,43 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (핵심 엔진 수리 완료) ---
+# --- 🔍 5. 검색 섹션 (수리된 엔진) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색어 입력", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
 if q:
     try:
         search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}"
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+        # 브라우저인 척 하기 위한 헤더
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
         res = requests.get(search_url, headers=headers, timeout=10)
         res.encoding = 'utf-8'
         html = res.text
         
-        # ✅ 불필요한 공백과 줄바꿈을 무시하고 데이터를 가져오도록 정규식 전면 수정
-        # 이미지 주소와 제목(bo3 클래스 안의 b 태그)을 정확히 매칭합니다.
-        items = re.findall(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)".*?class="bo3"><b>(.*?)</b>', html, re.DOTALL)
+        # 💡 핵심 수정: 이미지와 제목을 각각의 독립적인 리스트로 추출 (더 유연함)
+        # 이미지: 'cover'가 포함된 모든 https 주소 추출
+        imgs = re.findall(r'src="(https://image\.aladin\.co\.kr/[^"]+cover[^"]+)"', html)
+        # 제목: bo3 클래스 안의 b 태그 내용 추출
+        titles = re.findall(r'<a[^>]+class="bo3"[^>]*><b>(.*?)</b></a>', html)
         
-        if items:
+        if imgs and titles:
             valid_books = []
-            seen = set()
-            for img_url, title in items:
-                if img_url not in seen:
-                    # 분야(장르) 추출
+            seen_urls = set()
+            # 이미지와 제목 개수가 안 맞을 수 있으므로 루프 처리
+            for i in range(min(len(imgs), len(titles))):
+                if imgs[i] not in seen_urls:
+                    # 분야(장르) 추출 시도
                     try:
-                        seg = html.split(img_url)[1].split('</table>')[0]
+                        seg = html.split(imgs[i])[1].split('</table>')[0]
                         genre_match = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', seg)
                         genre = genre_match[-1] if genre_match else "미정"
                     except: genre = "미정"
                     
-                    valid_books.append({"url": img_url, "title": title, "genre": genre})
-                    seen.add(img_url)
+                    valid_books.append({"url": imgs[i], "title": titles[i], "genre": genre})
+                    seen_urls.add(imgs[i])
 
-            # 4열 그리드 출력
-            for i in range(0, min(12, len(valid_books)), 4):
+            # 4열 배치 출력
+            for i in range(0, len(valid_books), 4):
                 cols = st.columns(4)
                 for j in range(4):
                     idx = i + j
@@ -151,15 +141,12 @@ if q:
                             st.markdown('<div class="search-card">', unsafe_allow_html=True)
                             st.image(book["url"])
                             st.markdown('</div>', unsafe_allow_html=True)
-                            
                             st.markdown(f"<div class='no-title-text'>{book['title']}</div>", unsafe_allow_html=True)
                             st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
                             g_val = st.text_input("분야수정", value=book["genre"], label_visibility="collapsed", key=f"s_gen_{idx}")
-                            
                             with st.expander("📅 기간"):
                                 s_d = st.date_input("시작", value=date.today(), key=f"s_ds_{idx}")
                                 e_d = st.date_input("종료", value=date.today(), key=f"s_de_{idx}")
-                            
                             b_r, b_w = st.columns(2)
                             if b_r.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
                                 img_data = requests.get(book["url"]).content
@@ -169,9 +156,9 @@ if q:
                                 st.session_state.wishlist.append({"url": book["url"], "genre": g_val, "title": book["title"]})
                                 save_all(); st.rerun()
         else:
-            st.warning(f"'{q}'에 대한 검색 결과가 없습니다.")
+            st.warning("검색 결과를 찾을 수 없습니다. 검색어를 확인해주세요.")
     except Exception as e:
-        st.error(f"실행 중 오류가 발생했습니다: {e}")
+        st.error(f"검색 중 오류 발생: {e}")
 
 # --- 📚 6. 내 서재 목록 ---
 st.divider()
