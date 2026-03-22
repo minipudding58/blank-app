@@ -45,23 +45,29 @@ def load_all():
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# --- 🎨 스타일 설정 (PDF 버튼 색상 #B0FFFA 및 위시리스트 버튼 폰트 조절) ---
+# --- 🎨 스타일 설정 (PDF 버튼 #BBE0EF 및 텍스트 밸런스 조정) ---
 st.markdown("""
     <style>
     .stCaption { display:none; }
-    /* PDF 다운로드 버튼 커스텀 */
+    
+    /* PDF 다운로드 버튼: 배경색 변경 및 텍스트 크기 최적화 */
     div.stDownloadButton > button {
         width: 100%;
-        background-color: #B0FFFA !important;
+        background-color: #BBE0EF !important;
         color: #333333 !important;
-        font-weight: bold;
-        border: 1px solid #90e0db;
+        font-weight: 500;
+        border: 1px solid #a5cce0;
         border-radius: 8px;
+        padding: 0.25rem 0.5rem !important;
+    }
+    div.stDownloadButton > button p {
+        font-size: 14px !important; /* 개별 삭제 모드 텍스트와 크기 맞춤 */
     }
     div.stDownloadButton > button:hover {
-        background-color: #98f5ef !important;
+        background-color: #a7d3e6 !important;
     }
-    /* 위시리스트 버튼 글자 크기 축소 (줄바꿈 방지) */
+
+    /* 위시리스트 버튼: 줄바꿈 방지 및 폰트 미세 조정 */
     div[data-testid="stHorizontalBlock"] button p {
         font-size: 13px !important;
         white-space: nowrap !important;
@@ -86,7 +92,8 @@ if query:
                 with cols[i % 4]:
                     st.image(img_url, use_container_width=True)
                     c1, c2 = st.columns(2)
-                    if c1.button("📖 스티커", key=f"s_{i}"):
+                    # 💡 '스티커'를 '읽은 책'으로 변경
+                    if c1.button("📖 읽은 책", key=f"s_{i}"):
                         r = requests.get(img_url)
                         img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
                         st.session_state.collection.append({"img": img_obj, "url": img_url})
@@ -102,17 +109,18 @@ if query:
 st.divider()
 left_col, right_col = st.columns(2)
 
-# --- 🖨️ 왼쪽: 읽은 책 모음 ---
+# --- 🖨️ 왼쪽: 읽은 책 모음 (A4) ---
 with left_col:
     st.header("📖 읽은 책 모음")
     if st.session_state.collection:
-        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
+        btn_col1, btn_col2, btn_col3 = st.columns([1.2, 1.2, 1.6])
         with btn_col1:
-            if st.button("🗑️ 전체 비우기"):
+            if st.button("🗑️ 전체 비우기", use_container_width=True):
                 st.session_state.collection = []
                 save_all()
                 st.rerun()
         with btn_col2:
+            st.write("") 
             del_mode = st.toggle("개별 삭제 모드")
         with btn_col3:
             sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
@@ -147,7 +155,7 @@ with left_col:
             st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
     else: st.info("읽은 책을 추가해 보세요!")
 
-# --- 📚 오른쪽: 위시리스트 (아이콘 및 줄바꿈 최적화) ---
+# --- 📚 오른쪽: 위시리스트 ---
 with right_col:
     st.header("🩵 위시리스트")
     if st.session_state.wishlist:
@@ -158,7 +166,6 @@ with right_col:
                     st.image(item['url'], use_container_width=True)
                     ic1, ic2 = st.columns(2)
                     
-                    # 💡 선택 버튼 (폰트 조절로 줄바꿈 방지)
                     btn_label = "✅ 완료" if item['done'] else "📖 선택"
                     if ic1.button(btn_label, key=f"chk_{i}", use_container_width=True):
                         new_status = not item['done']
@@ -171,7 +178,6 @@ with right_col:
                         save_all()
                         st.rerun()
                         
-                    # 💡 삭제 버튼
                     if ic2.button("🗑️ 삭제", key=f"del_w_{i}", use_container_width=True):
                         st.session_state.wishlist.pop(i)
                         save_all()
