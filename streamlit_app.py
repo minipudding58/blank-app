@@ -23,8 +23,9 @@ st.markdown("""
         padding: 10px;
         margin-bottom: 10px;
         display: flex;
-        align-items: center;
-        gap: 15px;
+        flex-direction: column; /* 세로 배치 */
+        align-items: center; /* 가운데 정렬 */
+        gap: 8px; /* 간격 축소 */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -108,25 +109,32 @@ with l_col:
             buf = io.BytesIO(); sheet.save(buf, format="PNG")
             st.download_button("📥 다운로드", buf.getvalue(), "books.png", "image/png")
 
-# --- 📚 오른쪽: 위시리스트 (슬림 버전) ---
+# --- 📚 오른쪽: 위시리스트 (아이콘 하단 배치) ---
 with r_col:
     st.header("📚 위시리스트")
     if not st.session_state.wishlist:
         st.write("위시리스트가 비어있습니다.")
     
+    # 💡 한 줄에 3개씩 배치 (A4 인쇄판과 유사한 느낌)
+    cols_wish = st.columns(3)
+    
     for i, item in enumerate(st.session_state.wishlist):
-        # 작은 네모칸 구현
-        with st.container(border=True):
-            c1, c2, c3 = st.columns([1, 1, 1])
-            with c1:
-                st.image(item['url'], width=80)
-            with c2:
-                # 체크박스 (동그라미 이모지 버튼)
-                if st.button("⚪" if not item['done'] else "✅", key=f"chk_{i}"):
-                    st.session_state.wishlist[i]['done'] = not item['done']
-                    st.rerun()
-            with c3:
-                # 쓰레기통 삭제 버튼
-                if st.button("🗑️", key=f"del_wi_{i}"):
-                    st.session_state.wishlist.pop(i)
-                    st.rerun()
+        with cols_wish[i % 3]:
+            # 작은 네모칸 구현 (세로로 긴 슬림 카드)
+            with st.container(border=True):
+                # 🖼️ 1. 책 이미지 (상단)
+                st.image(item['url'], use_container_width=True)
+                
+                # 💡 요청 반영: 아이콘 두 개를 이미지 밑으로 배치
+                c_icon1, c_icon2 = st.columns(2)
+                
+                with c_icon1:
+                    # ⚪ ✅ 체크박스 (동그라미 이모지 버튼)
+                    if st.button("⚪" if not item['done'] else "✅", key=f"chk_{i}", use_container_width=True):
+                        st.session_state.wishlist[i]['done'] = not item['done']
+                        st.rerun()
+                with c_icon2:
+                    # 🗑️ 쓰레기통 삭제 버튼
+                    if st.button("🗑️", key=f"del_wi_{i}", use_container_width=True):
+                        st.session_state.wishlist.pop(i)
+                        st.rerun()
