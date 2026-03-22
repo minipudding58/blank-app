@@ -6,15 +6,15 @@ import re
 import json
 import os
 
-# 📏 설정 (A4 고화질 & 스티커 40mm)
+# 📏 인쇄 규격 설정
 DPI = 300
-TARGET_H_PX = int((40 / 25.4) * DPI)
+TARGET_H_PX = int((40 / 25.4) * DPI) # 40mm
 A4_W_PX = int((210 / 25.4) * DPI)
 A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 💾 데이터 관리 ---
+# --- 💾 데이터 관리 로직 ---
 DATA_FILE = "my_reading_data.json"
 if 'collection' not in st.session_state: st.session_state.collection = []
 if 'wishlist' not in st.session_state: st.session_state.wishlist = []
@@ -43,62 +43,67 @@ def load_all():
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# CSS: 찌꺼기 텍스트 투명화
-st.markdown("<style>.stCaption { color: rgba(0,0,0,0) !important; }</style>", unsafe_allow_html=True)
+# CSS 설정: 캡션 제거 및 버튼 스타일
+st.markdown("""
+    <style>
+    .stCaption { display:none; }
+    div.stDownloadButton > button {
+        width: 100%;
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
 st.title("📖 나의 독서 기록 관리")
 
-# --- 🔍 검색 (안정화 버전) ---
+# --- 🔍 책 검색 섹션 ---
 query = st.text_input("책 제목을 입력하고 Enter!", placeholder="예: 해리포터")
 
-def search_books(q):
-    url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    res = requests.get(url, headers=headers)
-    # 이미지와 제목을 가져오는 가장 원초적이고 확실한 방법
-    imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+', res.text)
-    return [{"url": u} for u in imgs[:8]]
-
 if query:
-    results = search_books(query)
-    if results:
+    url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}"
+    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+    imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+', res.text)
+    
+    if imgs:
         cols = st.columns(4)
-        for i, book in enumerate(results):
+        for i, img_url in enumerate(imgs[:8]):
             with cols[i % 4]:
-                st.image(book['url'], use_container_width=True)
+                st.image(img_url, use_container_width=True)
                 c1, c2 = st.columns(2)
                 if c1.button("🖼️ 스티커", key=f"s_{i}"):
-                    r = requests.get(book['url'])
-                    img = Image.open(io.BytesIO(r.content)).convert("RGB")
-                    st.session_state.collection.append({"img": img, "url": book['url']})
+                    r = requests.get(img_url)
+                    img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
+                    st.session_state.collection.append({"img": img_obj, "url": img_url})
                     save_all(); st.rerun()
                 if c2.button("💛 위시", key=f"w_{i}"):
-                    st.session_state.wishlist.append({"url": book['url'], "done": False})
+                    st.session_state.wishlist.append({"url": img_url, "done": False})
                     save_all(); st.rerun()
     else:
-        st.error("검색 결과가 없습니다. 제목을 확인해 주세요!")
+        st.error("검색 결과가 없습니다!")
 
 st.divider()
-left, right = st.columns(2)
+left_col, right_col = st.columns(2)
 
-# --- 🖨️ 인쇄판 (PDF & 개별삭제) ---
-with left:
-    st.header("🖨️ 인쇄용 스티커 판")
+# --- 🖨️ 왼쪽: 읽은 책 모음 (요청하신 순서대로 버튼 배치) ---
+with left_col:
+    st.header("🖨️ 읽은 책 모음 (A4)")
+    
     if st.session_state.collection:
-        col_btn = st.columns(2)
-        if col_btn[0].button("🗑️ 전체 비우기"):
-            st.session_state.collection = []; save_all(); st.rerun()
-        del_mode = col_btn[1].toggle("개별 삭제 모드")
-
-        if del_mode:
-            dcols = st.columns(4)
-            for idx, itm in enumerate(st.session_state.collection):
-                with dcols[idx % 4]:
-                    st.image(itm['img'], use_container_width=True)
-                    if st.button("❌", key=f"del_{idx}"):
-                        st.session_state.collection.pop(idx); save_all(); st.rerun()
-        else:
-            # A4 캔버스 생성
+        # 1. 버튼 레이아웃 구성 (전체비우기 - 개별삭제 - PDF다운)
+        btn_col1, btn_col2, btn_col3 = st.columns([1, 1, 2])
+        
+        with btn_col1:
+            if st.button("🗑️ 전체 비우기"):
+                st.session_state.collection = []
+                save_all(); st.rerun()
+        
+        with btn_col2:
+            del_mode = st.toggle("개별 삭제 모드")
+            
+        with btn_col3:
+            # 미리 PDF 생성
             sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
             x, y = 120, 120
             for itm in st.session_state.collection:
@@ -109,22 +114,47 @@ with left:
                     x = 120; y += TARGET_H_PX + 40
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
             
-            st.image(sheet, use_container_width=True)
-            # PDF 저장 버튼
             pdf_buf = io.BytesIO()
             sheet.save(pdf_buf, format="PDF", resolution=300.0)
-            st.download_button("📄 고화질 PDF 다운로드", pdf_buf.getvalue(), "books.pdf", "application/pdf")
+            st.download_button(
+                label="📥 PDF 다운로드",
+                data=pdf_buf.getvalue(),
+                file_name="my_stickers.pdf",
+                mime="application/pdf"
+            )
 
-# --- 📚 위시리스트 (아이콘 하단 배치) ---
-with right:
+        st.write("---") # 버튼과 미리보기 구분선
+
+        # 2. 하단 영역 (삭제 모드 또는 미리보기)
+        if del_mode:
+            st.info("지우고 싶은 책의 ❌ 버튼을 눌러주세요.")
+            dcols = st.columns(4)
+            for idx, itm in enumerate(st.session_state.collection):
+                with dcols[idx % 4]:
+                    st.image(itm['img'], use_container_width=True)
+                    if st.button("❌", key=f"del_{idx}"):
+                        st.session_state.collection.pop(idx)
+                        save_all(); st.rerun()
+        else:
+            st.image(sheet, use_container_width=True, caption="인쇄 미리보기 (A4)")
+    else:
+        st.info("검색 결과에서 '스티커' 버튼을 눌러 인쇄판에 담아보세요.")
+
+# --- 📚 오른쪽: 위시리스트 ---
+with right_col:
     st.header("📚 위시리스트")
-    wcols = st.columns(3)
-    for i, item in enumerate(st.session_state.wishlist):
-        with wcols[i % 3]:
-            with st.container(border=True):
-                st.image(item['url'], use_container_width=True)
-                ic1, ic2 = st.columns(2)
-                if ic1.button("⚪" if not item['done'] else "✅", key=f"chk_{i}"):
-                    st.session_state.wishlist[i]['done'] = not item['done']; save_all(); st.rerun()
-                if ic2.button("🗑️", key=f"dw_{i}"):
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
+    if st.session_state.wishlist:
+        wcols = st.columns(3)
+        for i, item in enumerate(st.session_state.wishlist):
+            with wcols[i % 3]:
+                with st.container(border=True):
+                    st.image(item['url'], use_container_width=True)
+                    ic1, ic2 = st.columns(2)
+                    if ic1.button("⚪" if not item['done'] else "✅", key=f"chk_{i}"):
+                        st.session_state.wishlist[i]['done'] = not item['done']
+                        save_all(); st.rerun()
+                    if ic2.button("🗑️", key=f"dw_{i}"):
+                        st.session_state.wishlist.pop(i)
+                        save_all(); st.rerun()
+    else:
+        st.write("위시리스트가 비어있습니다.")
