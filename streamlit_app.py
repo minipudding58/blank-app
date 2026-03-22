@@ -82,7 +82,6 @@ def save_all():
 with st.sidebar:
     st.markdown(f"### 👤 {st.session_state.user_id}")
     st.divider()
-    # ✅ 로그아웃 및 데이터 초기화 버튼
     if st.button("🚪 로그아웃", use_container_width=True):
         logout()
     if st.button("⚠️ 데이터 초기화", use_container_width=True):
@@ -90,7 +89,10 @@ with st.sidebar:
         st.session_state.collection = []; st.session_state.wishlist = []; st.rerun()
 
 # --- 🏠 메인 섹션 ---
-st.title(f"📖 {st.session_state.user_id}의 독서 기록")  #
+st.title(f"📖 {st.session_state.user_id}의 독서 기록") #
+# ✅ 제목 밑 공백 2줄 추가
+st.write("")
+st.write("")
 
 # --- 📊 상단 통계 현황 ---
 t_col1, t_col2 = st.columns([1, 4])
@@ -113,7 +115,6 @@ q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visi
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
-    # ✅ 장르 추출 및 자동 입력
     raw_genres = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
     
     if imgs:
