@@ -11,7 +11,7 @@ from collections import Counter
 
 # --- 설정 및 데이터 관리 ---
 DPI = 300
-TARGET_H_PX = 400 # 목록 이미지 세로 높이 고정
+TARGET_H_PX = 350 # 목록 이미지 세로 높이 고정
 A4_W_PX = int((210 / 25.4) * DPI)
 A4_H_PX = int((297 / 25.4) * DPI)
 
@@ -29,6 +29,7 @@ if not st.session_state.user_id:
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
+# 데이터 로드 시 TypeError 방지 (None 값 체크)
 if 'collection' not in st.session_state:
     st.session_state.collection = []; st.session_state.wishlist = []
     st.session_state.cal_year, st.session_state.cal_month = date.today().year, date.today().month
@@ -40,9 +41,13 @@ if 'collection' not in st.session_state:
                 for itm in d.get("collection", []):
                     r = requests.get(itm["url"], timeout=5, headers={"User-Agent": "Mozilla/5.0"})
                     if r.status_code == 200:
+                        # 날짜 데이터 누락 방어
+                        s_date = itm.get("start") if itm.get("start") else date.today().isoformat()
+                        e_date = itm.get("end") if itm.get("end") else date.today().isoformat()
                         st.session_state.collection.append({
-                            "img": Image.open(io.BytesIO(r.content)).convert("RGB"), "url": itm["url"],
-                            "start": itm.get("start"), "end": itm.get("end"), "genre": itm.get("genre", "미지정")
+                            "img": Image.open(io.BytesIO(r.content)).convert("RGB"), 
+                            "url": itm["url"], "start": s_date, "end": e_date, 
+                            "genre": itm.get("genre", "미지정")
                         })
         except: pass
 
@@ -50,26 +55,26 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🎨 스타일 설정 (이모지 위치 및 버튼 정렬 강제) ---
-st.markdown("""
+# --- 🎨 스타일 설정 ---
+st.markdown(f"""
     <style>
-    .big-font { font-size: 28px !important; font-weight: bold !important; margin-bottom: 15px; display: block; }
-    /* 1. 달력 이모지 숫자 밑으로 딱 붙이기 */
-    .cal-box { height: 55px; border: 1px solid #eee; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; }
-    .cal-day-num { font-size: 13px; font-weight: bold; line-height: 1; margin-bottom: 2px; }
-    .cal-book-emoji { font-size: 16px; line-height: 1; }
-    /* 3. 버튼 및 네모칸 넉넉하게 */
-    div.stButton > button { height: 45px !important; font-size: 14px !important; border-radius: 6px !important; }
-    .stDateInput div[data-baseweb="input"] { height: 45px !important; }
-    /* 위시리스트 테두리 제거 */
-    [data-testid="stVerticalBlockBorderWrapper"] { border: none !important; }
+    .big-font {{ font-size: 28px !important; font-weight: bold !important; margin-bottom: 15px; display: block; }}
+    /* 1. 달력 이모지 숫자 밑 정중앙 배치 */
+    .cal-box {{ height: 60px; border: 1px solid #eee; border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; gap: 2px; }}
+    .cal-day-num {{ font-size: 13px; font-weight: bold; line-height: 1; }}
+    .cal-book-emoji {{ font-size: 16px; line-height: 1; }}
+    /* 3. 버튼 및 날짜 칸 넉넉하게 */
+    div.stButton > button {{ height: 48px !important; font-size: 14px !important; border-radius: 6px !important; }}
+    .stDateInput div[data-baseweb="input"] {{ height: 48px !important; }}
+    /* 2. 이미지 세로 고정 (잘리지 않게) */
+    .book-img {{ height: {TARGET_H_PX}px !important; object-fit: contain; width: 100%; border-radius: 5px; }}
     </style>
     """, unsafe_allow_html=True)
 
 st.markdown(f"<h1>📖 {st.session_state.user_id}의 독서 기록</h1>", unsafe_allow_html=True)
 st.divider()
 
-# --- 📊 대시보드 및 달력 ---
+# --- 📊 상단 섹션 ---
 t_col1, t_col2 = st.columns([1, 1.4])
 with t_col1:
     st.markdown(f"<div style='text-align:center;'><h3>{datetime.now().year}년 누적 독서</h3><h1 style='color:#87CEEB; font-size:55px;'>✨{len(st.session_state.collection)}권✨</h1></div>", unsafe_allow_html=True)
@@ -107,22 +112,23 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 검색 (장르 연동 보강) ---
+# --- 🔍 검색 ---
 st.markdown("<span class='big-font'>📖 책 제목 입력</span>", unsafe_allow_html=True)
 query = st.text_input("제목 입력", label_visibility="collapsed", placeholder="예: 먼작귀")
 
 if query:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}", headers={"User-Agent": "Mozilla/5.0"}).text
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
-    # 장르 추출 정규식: [<a ...>장르명</a>] 패턴 정밀 타겟팅
-    found_genres = re.findall(r'\[<a href=[^>]+>([^<]+)</a>\]', res)
+    # 2. 장르 추출 정규식 보강 (더 포괄적으로 변경)
+    found_genres = re.findall(r'\[<a href=[^>]+>([^<]+)</a>\]|<li><a href=[^>]+>([^<]+)</a></li>', res)
+    cleaned_genres = [next(filter(None, g)) if any(g) else "미지정" for g in found_genres]
 
     if imgs:
         scols = st.columns(4)
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
-                st.image(url, use_container_width=True)
-                g_val = found_genres[i] if i < len(found_genres) else "미지정"
+                st.markdown(f"<img src='{url}' class='book-img'>", unsafe_allow_html=True)
+                g_val = cleaned_genres[i] if i < len(cleaned_genres) else "미지정"
                 sel_genre = st.text_input("장르", value=g_val, key=f"gen_{i}")
                 c1, c2 = st.columns(2)
                 if c1.button("📖 읽음", key=f"read_{i}"):
@@ -133,28 +139,33 @@ if query:
 
 st.divider()
 
-# --- 📚 하단 목록 (정렬 및 높이 고정) ---
+# --- 📚 하단 목록 ---
 l_col, r_col = st.columns(2)
 
 with l_col:
     st.markdown("<span class='big-font'>📖 읽은 책 모음</span>", unsafe_allow_html=True)
-    # 3. 전체비우기-개별삭제-PDF인쇄 일렬 정렬
+    # 3. 버튼 일렬 정렬
     ctrl_c1, ctrl_c2, ctrl_c3 = st.columns([1, 1, 1.5])
     with ctrl_c1: 
         if st.button("🗑️ 전체 비우기", use_container_width=True): st.session_state.collection = []; save_all(); st.rerun()
-    with ctrl_c2:
-        del_m = st.toggle("개별 삭제 모드")
+    with ctrl_c2: del_m = st.toggle("개별 삭제 모드")
     
     print_list = []
     dcols = st.columns(3)
     for idx, itm in enumerate(st.session_state.collection):
         with dcols[idx % 3]:
-            # 세로 높이 고정 이미지 출력
-            st.image(itm["img"], height=TARGET_H_PX)
+            st.markdown(f"<img src='{itm['url']}' class='book-img'>", unsafe_allow_html=True)
             if st.checkbox("인쇄 선택", key=f"ck_{idx}", value=True): print_list.append(idx)
-            # 장르칸 높이 맞추기 위해 공백 포함
-            st.markdown(f"<div style='height:45px; display:flex; align-items:center;'><b>장르: {itm['genre']}</b></div>", unsafe_allow_html=True)
-            new_dr = st.date_input("날짜", [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])], key=f"dt_{idx}", label_visibility="collapsed")
+            # 장르 및 옵션 칸 높이 고정
+            st.markdown(f"<div style='height:40px; margin-top:10px;'><b>장르: {itm['genre']}</b></div>", unsafe_allow_html=True)
+            
+            # 날짜 입력 (Type Error 방지 처리)
+            try:
+                d_val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
+            except:
+                d_val = [date.today(), date.today()]
+            
+            new_dr = st.date_input("읽은 기간", d_val, key=f"dt_{idx}", label_visibility="collapsed")
             
             btn_c1, btn_c2 = st.columns([2, 1])
             with btn_c1:
@@ -173,30 +184,28 @@ with l_col:
             x_p, y_p = 100, 100
             for i in print_list:
                 img = st.session_state.collection[i]["img"]
-                ratio = TARGET_H_PX / float(img.size[1])
-                img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
-                if x_p + img_res.size[0] > A4_W_PX - 100: x_p = 100; y_p += TARGET_H_PX + 40
+                ratio = (TARGET_H_PX * 2) / float(img.size[1]) # PDF용 크기
+                img_res = img.resize((int(img.size[0] * ratio), int(TARGET_H_PX * 2)), Image.LANCZOS)
+                if x_p + img_res.size[0] > A4_W_PX - 100: x_p = 100; y_p += img_res.size[1] + 40
                 sheet.paste(img_res, (x_p, y_p)); x_p += img_res.size[0] + 40
             buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
             st.download_button(f"📥 선택 {len(print_list)}권 PDF 인쇄", buf.getvalue(), "books.pdf", use_container_width=True)
 
 with r_col:
     st.markdown("<span class='big-font'>🩵 위시리스트</span>", unsafe_allow_html=True)
-    # 5. 위시리스트 시작 위치 맞춤 (상단 컨트롤 바 높이만큼 공백)
-    st.markdown("<div style='height:65px;'></div>", unsafe_allow_html=True)
+    # 5. 위시리스트 시작 위치 맞춤 (컨트롤 바 높이 여백)
+    st.markdown("<div style='height:68px;'></div>", unsafe_allow_html=True)
     
     if st.session_state.wishlist:
         wcols = st.columns(3)
         for i, item in enumerate(st.session_state.wishlist):
             with wcols[i % 3]:
-                # 이미지 세로 높이 고정
-                st.image(item['url'], height=TARGET_H_PX)
-                st.markdown(f"<div style='height:45px; display:flex; align-items:center;'><b>장르: {item['genre']}</b></div>", unsafe_allow_html=True)
+                st.markdown(f"<img src='{item['url']}' class='book-img'>", unsafe_allow_html=True)
+                st.markdown(f"<div style='height:40px; margin-top:10px;'><b>장르: {item['genre']}</b></div>", unsafe_allow_html=True)
                 
-                # 4. 빈 네모+읽음 -> 선택이모지+읽음 로직
+                # 4. 빈 네모+읽음 버튼 로직
                 wc1, wc2 = st.columns(2)
                 if wc1.button("⬜ 읽음", key=f"wi_r_{i}", use_container_width=True):
-                    # 클릭 즉시 시각적 피드백을 위해 세션에 반영 후 리런
                     img = Image.open(io.BytesIO(requests.get(item['url']).content)).convert("RGB")
                     st.session_state.collection.append({"img": img, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
