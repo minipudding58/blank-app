@@ -16,42 +16,47 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 스타일 설정 (테두리 제거 및 여백 최소화) ---
+# --- 🎨 스타일 설정 (장르 카드 가로폭 축소 및 여백 제거) ---
 st.markdown(f"""
     <style>
-    /* 전체적인 위쪽 여백 제거 */
+    /* 상단 여백 최소화 */
     .block-container {{
-        padding-top: 2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 0rem !important;
     }}
     
-    /* 섹션 제목 여백 최적화 */
+    /* 누적 독서 (테두리 없음) */
+    .stat-container {{
+        text-align: center;
+        padding: 5px;
+    }}
+
+    /* ✅ 장르 카드 가로폭 및 크기 대폭 축소 */
+    .genre-wrapper {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px; /* 카드 사이 간격 */
+    }}
+    .genre-card {{
+        background-color: #f8f9fa;
+        padding: 8px 12px; /* 내부 여백 줄임 */
+        border-radius: 6px;
+        text-align: center;
+        border: 1px solid #eee;
+        min-width: 80px; /* 가로 최소폭 대폭 축소 */
+        max-width: 100px; /* 가로 최대폭 제한 */
+    }}
+    
     .section-title {{
-        font-size: 20px !important;
+        font-size: 19px !important;
         font-weight: bold !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 8px !important;
         display: block;
     }}
 
-    /* 누적 독서 칸 (테두리 없음, 여백 감소) */
-    .stat-container {{
-        text-align: center;
-        padding: 10px;
-        margin-bottom: 0px;
-    }}
-
-    /* 장르별 현황 카드 (크기 절반으로 축소, 촘촘한 배치) */
-    .genre-card {{
-        background-color: #f8f9fa;
-        padding: 10px 5px;
-        border-radius: 8px;
-        text-align: center;
-        border: 1px solid #eee;
-        margin-bottom: 5px;
-    }}
-    
-    hr {{
-        margin: 1em 0 !important;
+    /* 버튼 및 입력창 규격 유지 */
+    div.stButton > button {{
+        height: 40px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -82,17 +87,16 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# 상단 제목 (여백 줄임)
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 
-# --- 상단: 통계 섹션 (테두리 제거 및 압축 버전) ---
-t_col1, t_col2 = st.columns([1, 2.5])
+# --- 상단: 통계 섹션 ---
+t_col1, t_col2 = st.columns([1, 3])
 
 with t_col1:
     st.markdown(f"""
         <div class="stat-container">
-            <span style='font-size: 18px; color: #666;'>{datetime.now().year}년 누적 독서</span><br>
-            <span style='color:#87CEEB; font-size:55px; font-weight:bold;'>✨{len(st.session_state.collection)}권✨</span>
+            <span style='font-size: 16px; color: #666;'>{datetime.now().year}년 누적 독서</span><br>
+            <span style='color:#87CEEB; font-size:48px; font-weight:bold;'>✨{len(st.session_state.collection)}권✨</span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -100,22 +104,23 @@ with t_col2:
     st.markdown("<span class='section-title'>📚 장르별 독서 현황</span>", unsafe_allow_html=True)
     if st.session_state.collection:
         counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
-        # 장르가 많아질 것에 대비해 한 줄에 5개씩 촘촘하게 배치 (절반 크기 느낌)
-        g_cols = st.columns(5)
-        for i, (genre, count) in enumerate(counts.items()):
-            with g_cols[i % 5]:
-                st.markdown(f"""
-                    <div class='genre-card'>
-                        <span style='font-size: 13px; color: #888;'>{genre}</span><br>
-                        <span style='font-size: 18px; font-weight: bold; color: #333;'>{count}권</span>
-                    </div>
-                """, unsafe_allow_html=True)
+        # ✅ 가로로 촘촘하게 배치하기 위해 HTML 직접 구성
+        genre_html = "<div class='genre-wrapper'>"
+        for genre, count in counts.items():
+            genre_html += f"""
+                <div class='genre-card'>
+                    <div style='font-size: 12px; color: #888;'>{genre}</div>
+                    <div style='font-size: 16px; font-weight: bold; color: #333;'>{count}권</div>
+                </div>
+            """
+        genre_html += "</div>"
+        st.markdown(genre_html, unsafe_allow_html=True)
     else:
-        st.info("기록된 책이 없습니다.")
+        st.caption("기록된 책이 없습니다.")
 
 st.divider()
 
-# --- 검색/추가 섹션 (여백 최적화) ---
+# --- 검색/추가 섹션 ---
 st.markdown("<span class='section-title'>🔍 새 책 추가</span>", unsafe_allow_html=True)
 query = st.text_input("알라딘 검색", placeholder="제목/저자 입력", label_visibility="collapsed")
 if query:
@@ -139,7 +144,7 @@ if query:
 
 st.divider()
 
-# --- 하단 리스트 (기존 기능 유지) ---
+# --- 하단 리스트 ---
 l_col, r_col = st.columns(2)
 with l_col:
     st.markdown("<span class='section-title'>✅ 읽은 책 모음</span>", unsafe_allow_html=True)
@@ -166,19 +171,7 @@ with l_col:
                         st.session_state.collection[idx]["start"], st.session_state.collection[idx]["end"] = new_dr[0].isoformat(), new_dr[1].isoformat()
                         save_all(); st.rerun()
                 if del_m and b2.button("❌", key=f"dc_{idx}"):
-                    st.session_state.collection.pop(idx); save_all(); st.rerun()
-
-        if print_Indices:
-            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
-            x, y = 100, 100
-            for i in print_Indices:
-                img = st.session_state.collection[i]["img"]
-                ratio = TARGET_H_PX / float(img.size[1])
-                img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
-                if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX + 40
-                sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
-            buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
-            st.download_button(f"📥 {len(print_Indices)}권 PDF 저장", buf.getvalue(), "books.pdf")
+                    st.session_state.pop(idx); save_all(); st.rerun()
 
 with r_col:
     st.markdown("<span class='section-title'>🩵 위시리스트</span>", unsafe_allow_html=True)
