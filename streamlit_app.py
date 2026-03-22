@@ -8,11 +8,11 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 기본 설정 ---
+# --- ⚙️ 기본 설정 (수정 금지) ---
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
-TARGET_H_PX = 200 # ✅ 이미지 세로 높이 고정
+TARGET_H_PX = 200  # ✅ 책 표지 세로 높이 고정 (열 정렬 유지)
 
-# --- 🎨 [UI] 스타일 설정 (좌측 정렬 복구 + 이미지/버튼 중앙 정렬) ---
+# --- 🎨 [UI] 스타일 설정 (사이드바/상단 고정 + 중앙 정렬) ---
 st.markdown(f"""
     <style>
     /* 검색창 빨간 테두리 제거 */
@@ -24,16 +24,7 @@ st.markdown(f"""
     }}
     .stTextInput > div > div {{ border: none !important; }}
     
-    /* ✅ 타이틀은 다시 좌측 정렬 */
-    .section-title {{ 
-        font-size: 18px !important; 
-        font-weight: bold !important; 
-        margin-bottom: 12px; 
-        display: block; 
-        text-align: left !important; 
-    }}
-
-    /* ✅ 이미지와 그 하단 요소(장르칸, 버튼)는 열 내에서 중앙 정렬 */
+    /* ✅ 책 이미지 및 그 하단 요소(장르칸, 버튼)는 각 열 내 중앙 정렬 */
     [data-testid="stImage"] img {{
         display: block !important;
         margin-left: auto !important;
@@ -45,12 +36,33 @@ st.markdown(f"""
     }}
     
     /* 장르 입력창 및 캡션 중앙 정렬 */
-    [data-testid="column"] [data-testid="stTextInput"], 
-    [data-testid="column"] .stCaption,
-    [data-testid="column"] [data-testid="stVerticalBlock"] > div {{
+    [data-testid="stTextInput"], .stCaption, [data-testid="stVerticalBlock"] > div {{
         text-align: center !important;
     }}
-
+    
+    /* ✅ 타이틀 및 섹션 제목은 사용자 요청대로 절대 좌측 정렬 복구 */
+    .section-title {{ 
+        font-size: 18px !important; 
+        font-weight: bold !important; 
+        margin-bottom: 12px; 
+        display: block; 
+        text-align: left !important; /* 다시 왼쪽으로 */
+    }}
+    
+    /* ✅ 장르별 독서 현황 완벽 복구 스타일 */
+    .stat-container {{ text-align: center; }}
+    .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 10px; }}
+    .genre-card {{
+        background-color: #f8f9fa;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        padding: 5px 12px;
+        min-width: 60px;
+        text-align: center;
+    }}
+    .genre-label {{ font-size: 12px; color: #888; }}
+    .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
+    
     /* 사이드바 스타일 유지 (절대 고정) */
     [data-testid="stSidebar"] {{ background-color: #f8f9fb; }}
     </style>
@@ -94,7 +106,7 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- ⬅️ 사이드바 (절대 고정) ---
+# --- ⬅️ 사이드바 (사용자 요청에 따라 절대 고정) ---
 with st.sidebar:
     st.markdown(f"### 👤 {st.session_state.user_id}")
     st.divider()
@@ -103,24 +115,28 @@ with st.sidebar:
         if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
         st.session_state.collection = []; st.session_state.wishlist = []; st.rerun()
 
-# --- 🏠 상단 영역 (절대 고정) ---
-st.title(f"📖 {st.session_state.user_id}의 독서 기록")
+# --- 🏠 상단 영역 (사용자 요청에 따라 절대 고정) ---
+st.title(f"📖 {st.session_state.user_id}의 독서 기록") #
 st.write(""); st.write("")
 
+# ✅ 사용자 요청 완벽 반영: 상단 통계 영역 복구
 t_col1, t_col2 = st.columns([1, 4])
 with t_col1:
-    st.markdown(f"<div style='text-align:center;'><div style='font-size:14px; color:#666;'>{datetime.now().year}년 누적</div><div style='font-size:40px; font-weight:bold; color:#87CEEB;'>✨{len(st.session_state.collection)}권✨</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='stat-container'><div style='font-size:14px; color:#666;'>{datetime.now().year}년 누적</div><div style='font-size:40px; font-weight:bold; color:#87CEEB;'>✨{len(st.session_state.collection)}권✨</div></div>", unsafe_allow_html=True)
 
 with t_col2:
     st.markdown("<span class='section-title'>📚 장르별 독서 현황</span>", unsafe_allow_html=True)
     if st.session_state.collection:
         counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
-        genre_html = "".join([f"<div style='display:inline-block; margin-right:10px;' class='genre-card'><div style='font-size:12px; color:#888;'>{g}</div><div style='font-size:16px; font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
-        st.markdown(f"<div>{genre_html}</div>", unsafe_allow_html=True)
+        genre_items = "".join([f"<div class='genre-card'><div class='genre-label'>{g}</div><div class='genre-value'>{c}권</div></div>" for g, c in counts.items()])
+        st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
+    else:
+        st.caption("기록이 없습니다.")
 
 st.divider()
 
-# --- 🔍 [수정] 도서 분야(장르) 추출 로직 강화 ---
+# --- 🔍 [수정] 책 검색 및 알라딘 분야(장르) 정밀 추출 ---
+# ✅ 타이틀 좌측 정렬 복구
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 
@@ -137,21 +153,27 @@ if q:
             if count >= 4: break
             
             img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
-            # ✅ 분야 정보 추출 로직 보강
-            genre_match = re.search(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
+            # ✅ 분야 정보 추출 로직 보강: 카테고리 링크에서 세부 장르만 추출
+            # 알라딘은 보통 마지막 카테고리가 세부 장르임
+            genre_match = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
             
             if img_match:
                 url = img_match.group()
-                found_genre = genre_match.group(1) if genre_match else "미지정"
+                # 이미지 인덱스에 맞춰 추출한 세부 장르 연동
+                found_genre = genre_match[-1] if genre_match else "미지정"
                 
                 with scols[count]:
-                    st.image(url, use_container_width=True)
-                    sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{count}", label_visibility="collapsed")
+                    st.image(url, use_container_width=True) # CSS에서 중앙 정렬됨
+                    # ✅ 장르 자동 입력 연동
+                    sel_genre = st.text_input("장르 확인", value=found_genre, key=f"sg_{count}", label_visibility="collapsed")
                     
                     b_cols = st.columns(2)
                     if b_cols[0].button("📖 읽음", key=f"r_{count}", use_container_width=True):
                         img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                        st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
+                        st.session_state.collection.append({
+                            "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
+                            "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre
+                        })
                         save_all(); st.rerun()
                     if b_cols[1].button("🩵 위시", key=f"w_{count}", use_container_width=True):
                         st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
@@ -159,7 +181,7 @@ if q:
 
 st.divider()
 
-# --- 📚 하단 기록 목록 ---
+# --- 📚 하단 기록 목록 (정렬 유지) ---
 l_col, r_col = st.columns(2)
 with l_col:
     st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
