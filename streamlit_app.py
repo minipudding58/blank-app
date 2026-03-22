@@ -5,68 +5,69 @@ import io
 
 st.set_page_config(page_title="나만의 독서 스티커 메이커", page_icon="📖")
 
-# 세션 상태 초기화 (이미지 선택 데이터 저장)
+# 세션 상태 초기화
 if 'selected_images' not in st.session_state:
     st.session_state.selected_images = {}
+if 'temp_results' not in st.session_state:
+    st.session_state.temp_results = {}
 
 def get_search_results(title):
-    """구글 북스에서 여러 개의 검색 결과를 가져옵니다."""
-    url = f"https://www.googleapis.com/books/v1/volumes?q={title}&maxResults=5"
+    """구글 API를 통해 더 넓은 범위로 검색합니다."""
+    # 제목 앞뒤 공백 제거 및 검색 최적화
+    clean_title = title.strip()
+    url = f"https://www.googleapis.com/books/v1/volumes?q={clean_title}&maxResults=8&orderBy=relevance"
     try:
-        res = requests.get(url).json()
+        res = requests.get(url, timeout=10).json()
         results = []
         for item in res.get("items", []):
             info = item.get("volumeInfo", {})
             links = info.get("imageLinks", {})
+            # 최대한 큰 이미지를 찾고, 없으면 기본 썸네일
             img_url = links.get("extraLarge") or links.get("large") or links.get("medium") or links.get("thumbnail")
             if img_url:
-                # 고화질 변환 팁
-                img_url = img_url.replace("http://", "https://") + "&fife=w800-h1200"
-                results.append({"url": img_url, "title": info.get("title"), "date": info.get("publishedDate", "날짜미상")})
+                # 고화질 변환 및 보안 연결
+                img_url = img_url.replace("http://", "https://") + "&fife=w800"
+                results.append({
+                    "url": img_url, 
+                    "title": info.get("title", "제목 없음"), 
+                    "date": info.get("publishedDate", "날짜 미상")[:4] # 년도만 표시
+                })
         return results
     except:
         return []
 
 st.title("📖 나만의 독서 스티커 메이커")
-st.write("원하는 표지 버전을 직접 선택해서 스티커를 만드세요!")
+st.write("원하는 표지를 직접 선택하세요! 책 구분은 **슬래시(/)**로 해주시면 됩니다.")
 
-# 1. 제목 입력
-titles_input = st.text_area("책 제목들 (쉼표로 구분)", "불편한 편의점, 슬램덩크", height=100)
-titles = [t.strip() for t in titles_input.split(",") if t.strip()]
+# 1. 입력창 (이제 / 로 구분합니다!)
+titles_input = st.text_area("책 제목들을 입력하세요 (예: 불편한 편의점 / 슬램덩크 / 파친코)", height=100)
 
-# 2. 검색 및 선택 섹션
-if st.button("표지 찾기 🔍"):
-    st.session_state.temp_results = {title: get_search_results(title) for title in titles}
+# 2. 검색 섹션
+if st.button("표지 검색 시작 🔍"):
+    if titles_input:
+        # 쉼표가 아닌 슬래시(/)로 나눕니다.
+        titles = [t.strip() for t in titles_input.split("/") if t.strip()]
+        with st.spinner('최신 표지들을 찾는 중...'):
+            st.session_state.temp_results = {title: get_search_results(title) for title in titles}
+    else:
+        st.error("책 제목을 입력해주세요!")
 
-if 'temp_results' in st.session_state:
+# 3. 결과 선택창
+if st.session_state.temp_results:
     for title, results in st.session_state.temp_results.items():
-        st.subheader(f"📍 '{title}' 검색 결과")
+        st.markdown(f"### 📍 '{title}' 검색 결과")
         if not results:
-            st.write("결과가 없습니다.")
+            st.warning(f"'{title}'에 대한 검색 결과가 없습니다. 제목을 정확하게 입력하거나 작가 이름을 포함해보세요.")
             continue
         
-        cols = st.columns(len(results))
+        # 4열로 이미지 배치
+        cols = st.columns(4)
         for idx, res in enumerate(results):
-            with cols[idx]:
-                st.image(res['url'], caption=f"{res['date']}판")
-                if st.button("이걸로 선택", key=f"{title}_{idx}"):
+            with cols[idx % 4]:
+                st.image(res['url'], use_container_width=True)
+                st.caption(f"{res['date']}년 버전")
+                if st.button("선택", key=f"btn_{title}_{idx}"):
                     st.session_state.selected_images[title] = res['url']
-                    st.success(f"선택 완료!")
+                    st.toast(f"'{title}' 표지 담기 완료!")
 
-# 3. 최종 스티커 판 생성
-st.divider()
-if st.button("선택한 표지들로 스티커 판 만들기 ✨"):
-    if not st.session_state.selected_images:
-        st.error("먼저 표지를 하나 이상 선택해주세요!")
-    else:
-        # 선택된 이미지들을 모아서 보여줌
-        final_cols = st.columns(4)
-        for i, (t, url) in enumerate(st.session_state.selected_images.items()):
-            with final_cols[i % 4]:
-                img_res = requests.get(url)
-                img = Image.open(io.BytesIO(img_res.content))
-                st.image(img, use_container_width=True)
-                
-        st.balloons()
-        st.success("모든 스티커가 준비되었습니다! 이제 인쇄하세요.")
-    
+# 4.
