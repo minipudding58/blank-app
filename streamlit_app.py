@@ -4,47 +4,52 @@ from PIL import Image
 import io
 import re
 
-# 📏 인쇄 설정
+# 📏 기본 설정
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# CSS 주입: 회색 캡션 글자(찌꺼기 코드)를 투명하게 만듭니다.
+# CSS: 회색 찌꺼기 글자 투명 처리 + 위시리스트 슬림 디자인
 st.markdown("""
     <style>
-    .stCaption {
-        color: rgba(0,0,0,0) !important;
-        height: 0px;
-        margin-bottom: -10px;
+    /* 검색결과 아래 회색 글자 투명화 */
+    .stCaption { color: rgba(0,0,0,0) !important; height: 0px; margin-bottom: -10px; }
+    
+    /* 위시리스트 슬림 카드 디자인 */
+    .wish-card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
     }
     </style>
     """, unsafe_allow_html=True)
 
+# 데이터 저장소 초기화
 if 'collection' not in st.session_state: st.session_state.collection = []
 if 'wishlist' not in st.session_state: st.session_state.wishlist = []
 
 st.title("📖 나의 독서 기록 관리")
 
-# --- 🔍 검색 엔진 (아까 잘 되던 원본 로직으로 복구) ---
+# --- 🔍 검색 엔진 (기존 로직 유지) ---
 query = st.text_input("책 제목을 입력하고 Enter!", placeholder="예: 해리포터")
 
 def get_data_original(search_query):
-    # 가장 잘 작동했던 원본 주소입니다.
     url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={search_query}"
     headers = {"User-Agent": "Mozilla/5.0"}
     results = []
     try:
         res = requests.get(url, headers=headers, timeout=10)
-        # 이미지와 제목을 가져오는 가장 확실한 규칙
         img_urls = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+', res.text)
         titles = re.findall(r'class="bo3"><b>(.*?)</b>', res.text)
-        
         for i in range(min(len(img_urls), 8)):
             t = titles[i] if i < len(titles) else "제목 없음"
             results.append({"title": t, "url": img_urls[i]})
-    except:
-        pass
+    except: pass
     return results
 
 if query:
@@ -55,8 +60,7 @@ if query:
         for idx, book in enumerate(books):
             with cols[idx % 4]:
                 st.image(book['url'], use_container_width=True)
-                # 💡 핵심: 캡션으로 넣어서 CSS가 투명하게 처리하도록 함
-                st.caption(book['title']) 
+                st.caption(book['title']) # 투명 처리됨
                 
                 c1, c2 = st.columns(2)
                 if c1.button("🖼️ 스티커", key=f"st_{idx}"):
@@ -65,14 +69,15 @@ if query:
                     st.session_state.collection.append(img)
                     st.toast("인쇄판 추가!")
                 if c2.button("💛 위시", key=f"wi_{idx}"):
-                    if not any(d['title'] == book['title'] for d in st.session_state.wishlist):
-                        st.session_state.wishlist.append({"title": book['title'], "url": book['url'], "done": False})
-                        st.toast("위시리스트 추가!")
+                    # 중복 체크 후 추가 (여러 권 담기 가능)
+                    if not any(d['url'] == book['url'] for d in st.session_state.wishlist):
+                        st.session_state.wishlist.append({"url": book['url'], "done": False})
+                        st.toast("위시리스트에 담았습니다!")
 
-# --- 🎨 하단 레이아웃 (개별 삭제 기능 유지) ---
 st.divider()
 l_col, r_col = st.columns([1, 1])
 
+# --- 🖨️ 왼쪽: 인쇄용 스티커 판 ---
 with l_col:
     st.header("🖨️ 읽은 책 모음 (A4)")
     if st.session_state.collection:
@@ -90,7 +95,6 @@ with l_col:
                 st.session_state.collection = []
                 st.rerun()
             
-            # A4 생성
             a4_w, a4_h = int((210/25.4)*DPI), int((297/25.4)*DPI)
             sheet = Image.new('RGB', (a4_w, a4_h), (255, 255, 255))
             x, y = 120, 120
@@ -104,17 +108,25 @@ with l_col:
             buf = io.BytesIO(); sheet.save(buf, format="PNG")
             st.download_button("📥 다운로드", buf.getvalue(), "books.png", "image/png")
 
+# --- 📚 오른쪽: 위시리스트 (슬림 버전) ---
 with r_col:
     st.header("📚 위시리스트")
+    if not st.session_state.wishlist:
+        st.write("위시리스트가 비어있습니다.")
+    
     for i, item in enumerate(st.session_state.wishlist):
+        # 작은 네모칸 구현
         with st.container(border=True):
-            c1, c2, c3 = st.columns([1, 3, 1])
-            c1.image(item['url'], use_container_width=True)
-            # 그림처럼 체크박스(버튼) 구현
-            if c1.button("⚪" if not item['done'] else "✅", key=f"chk_{i}"):
-                st.session_state.wishlist[i]['done'] = not item['done']
-                st.rerun()
-            c2.write(f"**{item['title']}**")
-            if c3.button("삭제", key=f"del_wi_{i}"):
-                st.session_state.wishlist.pop(i)
-                st.rerun()
+            c1, c2, c3 = st.columns([1, 1, 1])
+            with c1:
+                st.image(item['url'], width=80)
+            with c2:
+                # 체크박스 (동그라미 이모지 버튼)
+                if st.button("⚪" if not item['done'] else "✅", key=f"chk_{i}"):
+                    st.session_state.wishlist[i]['done'] = not item['done']
+                    st.rerun()
+            with c3:
+                # 쓰레기통 삭제 버튼
+                if st.button("🗑️", key=f"del_wi_{i}"):
+                    st.session_state.wishlist.pop(i)
+                    st.rerun()
