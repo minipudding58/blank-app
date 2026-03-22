@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 스타일 (상단 영역 박제 + 이미지 높이 고정) ---
+# --- 🎨 스타일 (상단 박제 + 이미지 높이 고정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
@@ -44,7 +44,7 @@ st.markdown(f"""
         color: #31333F;
     }}
 
-    /* ✅ 책 이미지 세로 길이 고정 (200px) - 열 정렬의 핵심 */
+    /* 책 이미지 세로 길이 고정 (200px) - 열 정렬 유지 */
     [data-testid="stImage"] img {{
         height: 200px !important;
         object-fit: contain !important;
@@ -87,8 +87,14 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- [상단] 누적 및 장르 현황 (박제 영역) ---
+# --- [최상단] 타이틀 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
+
+# ✅ 요청하신 공백 두 칸 추가
+st.write("")
+st.write("")
+
+# --- [상단] 누적 및 장르 현황 (박제 영역) ---
 t_col1, t_col2 = st.columns([1, 4])
 
 with t_col1:
@@ -104,13 +110,13 @@ with t_col2:
     if st.session_state.collection:
         counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
         genre_items = "".join([f"<div class='genre-card'><div class='genre-label'>{g}</div><div class='genre-value'>{c}권</div></div>" for g, c in counts.items()])
-        st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
+        st.markdown(f<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
     else:
         st.caption("기록이 없습니다.")
 
 st.divider()
 
-# --- [중단] 검색 섹션 (타이틀 크기 통일) ---
+# --- [중단] 검색 섹션 ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
@@ -123,9 +129,7 @@ if q:
             with scols[i]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                # 장르 입력칸
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
-                # 읽음/위시 버튼 일렬 정렬
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
