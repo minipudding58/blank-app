@@ -12,10 +12,10 @@ from collections import Counter
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 TARGET_H_PX = 200 # ✅ 이미지 세로 높이 고정
 
-# --- 🎨 [UI] 스타일 가이드 (테두리 제거 및 이미지 고정) ---
+# --- 🎨 [UI] 스타일 설정 (테두리 제거 및 이미지 고정) ---
 st.markdown(f"""
     <style>
-    /* ✅ 모든 입력창의 빨간 테두리 및 포커스 효과 제거 */
+    /* 검색창 빨간 테두리 제거 */
     div[data-baseweb="input"], input {{
         border: none !important;
         box-shadow: none !important;
@@ -24,7 +24,7 @@ st.markdown(f"""
     }}
     .stTextInput > div > div {{ border: none !important; }}
     
-    /* ✅ 이미지 높이 200px 강제 고정 및 비율 유지 */
+    /* 이미지 높이 200px 강제 고정 */
     [data-testid="stImage"] img {{
         height: {TARGET_H_PX}px !important;
         width: 100% !important;
@@ -34,6 +34,9 @@ st.markdown(f"""
     
     .section-title {{ font-size: 18px !important; font-weight: bold !important; margin-bottom: 12px; display: block; }}
     .genre-card {{ background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 5px 12px; text-align: center; }}
+    
+    /* 사이드바 스타일 커스텀 */
+    [data-testid="stSidebar"] {{ background-color: #f8f9fb; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -75,19 +78,20 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 메인 헤더 ---
-st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-
-# ✅ 요청하신 로그아웃/전체삭제 버튼 위치 (왼쪽 배치)
-btn_col1, btn_col2, _ = st.columns([1, 1, 4])
-with btn_col1:
-    if st.button("로그아웃"): logout()
-with btn_col2:
-    if st.button("🗑️ 전체 삭제"):
+# --- ⬅️ 사이드바 (로그아웃/데이터 삭제) ---
+with st.sidebar:
+    st.markdown(f"### 👤 {st.session_state.user_id}")
+    st.write("반가워요! 오늘도 즐거운 독서 되세요.")
+    st.divider()
+    # ✅ 왼쪽 사이드바에 위치한 관리 버튼들
+    if st.button("🚪 로그아웃", use_container_width=True):
+        logout()
+    if st.button("⚠️ 데이터 초기화", use_container_width=True):
         if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
         st.session_state.collection = []; st.session_state.wishlist = []; st.rerun()
 
-st.write("")
+# --- 🏠 메인 섹션 ---
+st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 
 # --- 📊 상단 통계 현황 ---
 t_col1, t_col2 = st.columns([1, 4])
@@ -110,16 +114,16 @@ q = st.text_input("검색창", placeholder="제목/저자 입력...", label_visi
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
-    # ✅ 장르(카테고리) 정밀 추출
+    # ✅ 장르 추출 및 자동 입력
     raw_genres = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
     
     if imgs:
         scols = st.columns(4)
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
-                st.image(url, use_container_width=True) # CSS에서 높이 고정됨
+                st.image(url, use_container_width=True)
                 found_genre = raw_genres[i] if i < len(raw_genres) else "미지정"
-                sel_genre = st.text_input("장르 확인", value=found_genre, key=f"sg_{i}", label_visibility="collapsed")
+                sel_genre = st.text_input("장르", value=found_genre, key=f"sg_{i}", label_visibility="collapsed")
                 
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
