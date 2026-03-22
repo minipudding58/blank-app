@@ -8,14 +8,14 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 기본 설정 (절대 고정) ---
+# --- ⚙️ 기본 설정 ---
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 TARGET_H_PX = 200 # 책 표지 높이 고정
 
 # --- 🎨 [UI] 스타일 설정 (중앙 정렬 + 상단 영역 원상복구) ---
 st.markdown(f"""
     <style>
-    /* 1. 검색창 빨간 테두리 제거 */
+    /* 1. 검색창 스타일 */
     div[data-baseweb="input"], input {{
         border: none !important;
         box-shadow: none !important;
@@ -51,7 +51,7 @@ st.markdown(f"""
     /* 장르 입력창 중앙 정렬 */
     [data-testid="stTextInput"], .stCaption {{ text-align: center !important; }}
 
-    /* 4. 장르별 독서 현황 카드 스타일 (원래대로) */
+    /* 4. 장르별 독서 현황 카드 스타일 */
     .genre-container {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }}
     .genre-card {{
         background-color: #ffffff;
@@ -69,7 +69,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🔗 데이터 관리 및 닉네임 설정 (누락 복구) ---
+# --- 🔗 데이터 관리 및 닉네임 설정 ---
 if 'user_id' not in st.session_state:
     st.session_state.user_id = st.query_params.get("user", "")
 
@@ -149,7 +149,7 @@ if q:
             if count >= 4: break
             img_match = re.search(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', item_html)
             
-            # ✅ 장르 추출 강화: 리스트의 마지막 항목이 세부 장르
+            # ✅ 장르 추출: 리스트의 마지막 항목이 세부 장르
             genre_list = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', item_html)
             found_genre = genre_list[-1] if genre_list else "미지정"
             
@@ -171,7 +171,7 @@ if q:
 
 st.divider()
 
-# --- 📚 하단 기록 목록 (읽은 책 / 위시리스트) ---
+# --- 📚 하단 기록 목록 (복구 완료) ---
 l_col, r_col = st.columns(2)
 with l_col:
     st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
