@@ -12,7 +12,7 @@ from collections import Counter, defaultdict
 st.set_page_config(page_title="나의 독서 기록장", page_icon="📖", layout="wide")
 TARGET_H_PX = 180 
 
-# --- 🎨 2. [UI] CSS 스타일 (사용자 요청 레이아웃 완벽 복구) ---
+# --- 🎨 2. [UI] CSS 스타일 (사용자 요청 디자인 복구) ---
 st.markdown(f"""
     <style>
     .stTextInput {{ text-align: left !important; }}
@@ -23,7 +23,7 @@ st.markdown(f"""
         border-radius: 10px !important;
     }}
 
-    /* ✅ 검색 결과 카드: 회색 배경 + 중앙 정렬 (image_f64a5b.png) */
+    /* 검색 결과 카드: 회색 배경 및 중앙 정렬 */
     .search-card {{
         background-color: #f8f9fb;
         border-radius: 15px;
@@ -45,7 +45,7 @@ st.markdown(f"""
         display: block !important;
     }}
     
-    /* ✅ '분야' 라벨 좌측 정렬 (image_f655da.png) */
+    /* 분야 라벨 좌측 정렬 */
     .field-left {{ 
         width: 100%; 
         text-align: left !important; 
@@ -113,44 +113,37 @@ with dash_col2:
         st.markdown(f"<div class='genre-container'>{genre_items_html}</div>", unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색 섹션 (처음부터 다시 짠 무적의 로직) ---
+# --- 🔍 5. 검색 섹션 (안 나오면 안 되는 강력한 파싱) ---
 st.markdown("### 🔍 책 검색")
 q = st.text_input("검색", placeholder="책 제목을 입력하세요...", label_visibility="collapsed") 
 
 if q:
     try:
-        # 알라딘 검색 결과 페이지
         search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}"
         html = requests.get(search_url, headers={"User-Agent": "Mozilla/5.0"}).text
         
-        # 1. 도서 리스트가 포함된 모든 테이블 영역을 먼저 확보
-        book_tables = re.findall(r'<table[^>]*class="ss_book_table"[^>]*>.*?</table>', html, re.DOTALL)
+        # 특정 태그에 의존하지 않고 이미지와 제목 정보를 독립적으로 추출
+        img_urls = re.findall(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', html)
+        titles = re.findall(r'class="bo3"><b>(.*?)</b>', html)
         
-        # 만약 클래스명이 다를 경우를 대비한 백업용 광역 파싱
-        if not book_tables:
-            book_tables = re.findall(r'<table[^>]*width="100%"[^>]*border="0"[^>]*cellspacing="0"[^>]*cellpadding="0"[^>]*>.*?</table>', html, re.DOTALL)
-
+        # 각 도서 섹션에서 장르 정보를 추출하기 위해 결과 페이지를 작게 쪼갬
+        segments = html.split('<table')
         valid_books = []
-        seen_imgs = set()
-
-        for table in book_tables:
-            # 2. 각 테이블 내부에서 이미지(cover)와 제목(bo3)을 순차적으로 추출
-            img_match = re.search(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', table)
-            title_match = re.search(r'class="bo3"><b>(.*?)</b>', table)
-            genre_list = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', table)
+        
+        for seg in segments:
+            img_m = re.search(r'src="(https://image.aladin.co.kr/product/\d+/\d+/cover[^"]+)"', seg)
+            title_m = re.search(r'class="bo3"><b>(.*?)</b>', seg)
+            genre_m = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', seg)
             
-            if img_match and title_match:
-                img_url = img_match.group(1)
-                if img_url not in seen_imgs:
-                    valid_books.append({
-                        "url": img_url,
-                        "title": title_match.group(1),
-                        "genre": genre_list[-1] if genre_list else "미정"
-                    })
-                    seen_imgs.add(img_url)
+            if img_m and title_m:
+                valid_books.append({
+                    "url": img_m.group(1),
+                    "title": title_m.group(1),
+                    "genre": genre_m[-1] if genre_m else "미정"
+                })
 
         if valid_books:
-            # ✅ 가로 4분할 수평 나열 (image_f66125.png 반영)
+            # ✅ 가로 4분할 수평 나열 복구 (image_f66125.png)
             for i in range(0, min(12, len(valid_books)), 4):
                 cols = st.columns(4)
                 for j in range(4):
@@ -161,34 +154,31 @@ if q:
                             st.markdown('<div class="search-card">', unsafe_allow_html=True)
                             st.image(book["url"])
                             st.markdown('</div>', unsafe_allow_html=True)
-                            
                             st.markdown(f"<div class='no-title-text'>{book['title']}</div>", unsafe_allow_html=True)
                             st.markdown("<div class='field-left'>분야</div>", unsafe_allow_html=True)
                             g_val = st.text_input("분야수정", value=book["genre"], label_visibility="collapsed", key=f"s_gen_{idx}")
-                            
                             with st.expander("📅 기간 설정"):
                                 s_d = st.date_input("시작", value=date.today(), key=f"s_ds_{idx}")
                                 e_d = st.date_input("종료", value=date.today(), key=f"s_de_{idx}")
-                            
-                            b1, b2 = st.columns(2)
-                            if b1.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
-                                img_bytes = requests.get(book["url"]).content
-                                st.session_state.collection.append({"img": Image.open(io.BytesIO(img_bytes)).convert("RGB"), "url": book["url"], "genre": g_val, "title": book["title"], "start": s_d.isoformat(), "end": e_d.isoformat()})
+                            c1, c2 = st.columns(2)
+                            if c1.button("📖 읽음", key=f"s_br_{idx}", use_container_width=True):
+                                r = requests.get(book["url"]).content
+                                st.session_state.collection.append({"img": Image.open(io.BytesIO(r)).convert("RGB"), "url": book["url"], "genre": g_val, "title": book["title"], "start": s_d.isoformat(), "end": e_d.isoformat()})
                                 save_all(); st.rerun()
-                            if b2.button("🩵 위시", key=f"s_bw_{idx}", use_container_width=True):
+                            if c2.button("🩵 위시", key=f"s_bw_{idx}", use_container_width=True):
                                 st.session_state.wishlist.append({"url": book["url"], "genre": g_val, "title": book["title"]})
                                 save_all(); st.rerun()
         else:
             st.warning("검색 결과가 없습니다. 제목을 정확히 입력해주세요.")
-    except:
-        st.error("서버 연결에 실패했습니다.")
+    except Exception as e:
+        st.error(f"검색 중 오류 발생: {e}")
 
 # --- 📚 6. 하단 목록 ---
 st.divider()
 tab1, tab2 = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab1:
     if st.session_state.collection:
-        edit_mode = st.toggle("삭제 모드 활성화", key="lib_edit")
+        edit = st.toggle("삭제 모드 활성화", key="lib_edit")
         grouped = defaultdict(list)
         for idx, item in enumerate(st.session_state.collection): grouped[item.get('genre', '미정')].append((idx, item))
         for g_name, g_items in grouped.items():
@@ -199,5 +189,5 @@ with tab1:
                     with cols[c_idx]:
                         st.image(itm["img"], use_container_width=True)
                         st.caption(f"**{itm['title'][:10]}**")
-                        if edit_mode and st.button("❌", key=f"del_{orig_idx}"):
+                        if edit and st.button("❌", key=f"del_{orig_idx}"):
                             st.session_state.collection.pop(orig_idx); save_all(); st.rerun()
