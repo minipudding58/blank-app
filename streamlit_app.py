@@ -10,7 +10,7 @@ from collections import Counter
 
 # --- ⚙️ 기본 설정 ---
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
-TARGET_H_PX = 200 # ✅ 이미지 세로 높이 고정
+TARGET_H_PX = 200  # ✅ 이미지 세로 높이 고정
 
 # --- 🎨 [UI] 스타일 설정 (테두리 제거 및 이미지 고정) ---
 st.markdown(f"""
@@ -35,7 +35,7 @@ st.markdown(f"""
     .section-title {{ font-size: 18px !important; font-weight: bold !important; margin-bottom: 12px; display: block; }}
     .genre-card {{ background-color: #f8f9fa; border: 1px solid #eee; border-radius: 8px; padding: 5px 12px; text-align: center; }}
     
-    /* 사이드바 스타일 커스텀 */
+    /* 사이드바 스타일 */
     [data-testid="stSidebar"] {{ background-color: #f8f9fb; }}
     </style>
     """, unsafe_allow_html=True)
@@ -78,12 +78,11 @@ def save_all():
     data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- ⬅️ 사이드바 (로그아웃/데이터 삭제) ---
+# --- ⬅️ 사이드바 (인사말 삭제 완료) ---
 with st.sidebar:
     st.markdown(f"### 👤 {st.session_state.user_id}")
-    st.write("반가워요! 오늘도 즐거운 독서 되세요.")
     st.divider()
-    # ✅ 왼쪽 사이드바에 위치한 관리 버튼들
+    # ✅ 로그아웃 및 데이터 초기화 버튼
     if st.button("🚪 로그아웃", use_container_width=True):
         logout()
     if st.button("⚠️ 데이터 초기화", use_container_width=True):
@@ -91,7 +90,7 @@ with st.sidebar:
         st.session_state.collection = []; st.session_state.wishlist = []; st.rerun()
 
 # --- 🏠 메인 섹션 ---
-st.title(f"📖 {st.session_state.user_id}의 독서 기록")
+st.title(f"📖 {st.session_state.user_id}의 독서 기록")  #
 
 # --- 📊 상단 통계 현황 ---
 t_col1, t_col2 = st.columns([1, 4])
