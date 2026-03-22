@@ -45,32 +45,52 @@ def load_all():
 if not st.session_state.collection and not st.session_state.wishlist:
     load_all()
 
-# --- 🎨 스타일 설정 (PDF 버튼 #BBE0EF 및 텍스트 밸런스 조정) ---
+# --- 🎨 스타일 설정 (버튼 글자 크기 및 수평 정렬 최적화) ---
+# 💡 핵심: 모든 버튼의 글자 크기를 Streamlit 기본 텍스트 크기(14px)로 통일하고 높이를 맞춥니다.
 st.markdown("""
     <style>
     .stCaption { display:none; }
     
-    /* PDF 다운로드 버튼: 배경색 변경 및 텍스트 크기 최적화 */
+    /* 1. 모든 버튼 글자 크기 통일 (14px) */
+    div.stButton > button p,
+    div.stDownloadButton > button p {
+        font-size: 14px !important;
+        white-space: nowrap !important;
+    }
+    
+    /* 2. PDF 다운로드 버튼 커스텀 (배경색 투명화 & 글자 크기 맞춤) */
     div.stDownloadButton > button {
         width: 100%;
-        background-color: #BBE0EF !important;
+        background-color: transparent !important; /* 배경색 제거 */
         color: #333333 !important;
         font-weight: 500;
-        border: 1px solid #a5cce0;
+        border: 1px solid #ddd; /* 테두리는 유지하여 버튼임을 표시 */
         border-radius: 8px;
-        padding: 0.25rem 0.5rem !important;
-    }
-    div.stDownloadButton > button p {
-        font-size: 14px !important; /* 개별 삭제 모드 텍스트와 크기 맞춤 */
+        padding: 0.25rem 0.5rem !important; /* 높이 조절 */
     }
     div.stDownloadButton > button:hover {
-        background-color: #a7d3e6 !important;
+        background-color: #fafafa !important;
+        border: 1px solid #ccc;
     }
 
-    /* 위시리스트 버튼: 줄바꿈 방지 및 폰트 미세 조정 */
+    /* 3. 전체 비우기 버튼 커스텀 (글자 크기 맞춤) */
+    div.stButton > button#all-clear-btn {
+        width: 100%;
+        background-color: transparent !important;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 0.25rem 0.5rem !important; /* 높이 조절 */
+    }
+
+    /* 4. 위시리스트 버튼 줄바꿈 방지 */
     div[data-testid="stHorizontalBlock"] button p {
         font-size: 13px !important;
         white-space: nowrap !important;
+    }
+    
+    /* 5. 버튼 레이아웃 컬럼 정렬 (시각적 일체감) */
+    [data-testid="stHorizontalBlock"] > div {
+        align-items: center; /* 수직 가운데 정렬 */
     }
     </style>
     """, unsafe_allow_html=True)
@@ -92,7 +112,6 @@ if query:
                 with cols[i % 4]:
                     st.image(img_url, use_container_width=True)
                     c1, c2 = st.columns(2)
-                    # 💡 '스티커'를 '읽은 책'으로 변경
                     if c1.button("📖 읽은 책", key=f"s_{i}"):
                         r = requests.get(img_url)
                         img_obj = Image.open(io.BytesIO(r.content)).convert("RGB")
@@ -109,19 +128,28 @@ if query:
 st.divider()
 left_col, right_col = st.columns(2)
 
-# --- 🖨️ 왼쪽: 읽은 책 모음 (A4) ---
+# --- 🖨️ 왼쪽: 읽은 책 모음 (정렬 수정 완료) ---
 with left_col:
     st.header("📖 읽은 책 모음")
     if st.session_state.collection:
-        btn_col1, btn_col2, btn_col3 = st.columns([1.2, 1.2, 1.6])
+        # 💡 정렬 최적화: 컬럼 비율 조정 및 정렬 스크립트 추가
+        # 'use_container_width'를 적극 활용하여 정렬을 맞춥니다.
+        st.markdown('<div id="books-control-row">', unsafe_allow_html=True)
+        btn_col1, btn_col2, btn_col3 = st.columns([1.1, 1.2, 1.3])
+        
         with btn_col1:
-            if st.button("🗑️ 전체 비우기", use_container_width=True):
+            # CSS에서 아이디 기반으로 스타일을 적용하기 위해 key 값을 설정
+            if st.button("🗑️ 전체 비우기", key="all-clear-btn", use_container_width=True):
                 st.session_state.collection = []
                 save_all()
                 st.rerun()
+                
         with btn_col2:
+            # 💡 텍스트와 높이를 맞추기 위해 여백 추가
+            st.write("") 
             st.write("") 
             del_mode = st.toggle("개별 삭제 모드")
+            
         with btn_col3:
             sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
             x, y = 120, 120
@@ -139,8 +167,11 @@ with left_col:
                 label="📥 PDF 다운로드",
                 data=pdf_buf.getvalue(),
                 file_name="my_stickers.pdf",
-                mime="application/pdf"
+                mime="application/pdf",
+                use_container_width=True # 줄바꿈 방지 및 정렬 맞춤
             )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
         st.write("---")
         if del_mode:
             dcols = st.columns(4)
