@@ -59,14 +59,14 @@ def save_all():
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🎨 스타일 설정 (검색창 크기 및 볼드 반영) ---
+# --- 🎨 스타일 설정 (사용자 요청 사항 반영) ---
 st.markdown("""
     <style>
-    /* ✅ 검색창 제목 스타일 (볼드, 크기 확대) */
-    .search-label {
-        font-size: 20px !important;
+    /* ✅ 검색창 제목 크기 확대 (밑에 목록만큼) */
+    .stTextInput label p {
+        font-size: 24px !important;
         font-weight: bold !important;
-        margin-bottom: 10px;
+        margin-bottom: 15px !important;
     }
     /* 버튼 텍스트 최적화 */
     div.stButton > button p { 
@@ -74,47 +74,48 @@ st.markdown("""
         white-space: nowrap !important; 
     }
     div.stButton > button { height: 38px !important; padding: 0px 5px !important; }
-    /* 달력 이모지 스타일 */
-    .cal-book-emoji { font-size: 18px; text-align: center; }
+    /* 달력 날짜 숫자 스타일 */
+    .cal-day-num { font-size: 12px; font-weight: bold; margin-bottom: 1px; }
+    /* ✅ 달력 이모지 스타일 (날짜 바로 밑에 딱 붙게) */
+    .cal-book-emoji { font-size: 18px; text-align: center; margin-top: -3px; }
     </style>
     """, unsafe_allow_html=True)
-
-# --- 🏠 사이드바 ---
-with st.sidebar:
-    st.write(f"👤 접속 중: **{st.session_state.user_id}**")
-    if st.button("🚪 로그아웃", use_container_width=True):
-        st.query_params.clear(); st.session_state.clear(); st.rerun()
-    st.write("---")
-    if st.button("🔥 데이터 삭제", use_container_width=True):
-        if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
-        st.query_params.clear(); st.session_state.clear(); st.rerun()
 
 # ✅ 최상단 타이틀 복구
 st.markdown(f"<h1>📖 {st.session_state.user_id}의 독서 기록</h1>", unsafe_allow_html=True)
 
-# --- 📊 대시보드 (통계 & 개편된 달력) ---
-t_col1, t_col2 = st.columns([1, 2])
+# --- 📊 대시보드 (디자인 개편) ---
+# 빈 공간 없이 알차게 배치하기 위해 컬럼 비율 조정
+t_col1, t_col2 = st.columns([1, 2.5])
 with t_col1:
-    st.markdown(f"""<div style="background-color:#f8f9fa; padding:20px; border-radius:15px; text-align:center; border:1px solid #ddd; margin-top:10px;">
-        <h3 style="margin-bottom:0;">{datetime.now().year}년 누적 독서</h3>
-        <h1 style="color:#87CEEB; font-size:60px; margin-top:10px;">{len(st.session_state.collection)}권</h1>
+    # ✅ 누적 독서 카드 슬림화 (배경색 제거, 크기 축소)
+    st.markdown(f"""<div style="text-align:center; padding: 10px; border-bottom: 2px solid #ddd; margin-bottom: 20px;">
+        <h3 style="margin-bottom:0; color: #333;">{datetime.now().year}년 누적 독서</h3>
+        <h1 style="color:#87CEEB; font-size:55px; margin-top:5px; margin-bottom: 0;">{len(st.session_state.collection)}권</h1>
     </div>""", unsafe_allow_html=True)
+    
+    # 누적 독서 카드 아래 빈 공간에 넣으면 좋은 '최근 읽은 책' 미니 목록
+    st.caption("✨ 최근 추가된 기록")
+    if st.session_state.collection:
+        latest = st.session_state.collection[-3:]
+        for itm in latest:
+            st.write(f"- {itm['start']}에 독서 시작")
 
 with t_col2:
-    # 달력 컨트롤
-    prev_col, next_col = st.columns([1, 1])
-    if prev_col.button("◀ 이전 달"):
+    # ✅ 달력 컨트롤 (버튼 위치 이동: 이전은 왼쪽, 다음은 오른쪽)
+    mc1, mc2, mc3 = st.columns([1, 2, 1])
+    # 이전 달 버튼 (왼쪽 끝)
+    if mc1.button("◀ 이전 달", use_container_width=True):
         if st.session_state.cal_month == 1: st.session_state.cal_month = 12; st.session_state.cal_year -= 1
         else: st.session_state.cal_month -= 1; st.rerun()
-    if next_col.button("다음 달 ▶"):
+    # 연월 제목 (중앙)
+    mc2.markdown(f"<h3 style='text-align:center; margin-top: 0;'>📅 {st.session_state.cal_year}년 {st.session_state.cal_month}월</h3>", unsafe_allow_html=True)
+    # 다음 달 버튼 (오른쪽 끝)
+    if mc3.button("다음 달 ▶", use_container_width=True):
         if st.session_state.cal_month == 12: st.session_state.cal_month = 1; st.session_state.cal_year += 1
         else: st.session_state.cal_month += 1; st.rerun()
     
-    # ✅ 이모지 독서 달력 (디자인 전면 개편)
-    year, month = st.session_state.cal_year, st.session_state.cal_month
-    st.markdown(f"<h3 style='text-align:center;'>📅 {year}년 {month}월</h3>", unsafe_allow_html=True)
-    cal = calendar.monthcalendar(year, month)
-    
+    cal = calendar.monthcalendar(st.session_state.cal_year, st.session_state.cal_month)
     w_cols = st.columns(7)
     for i, dname in enumerate(["일", "월", "화", "수", "목", "금", "토"]): w_cols[i].caption(dname)
     
@@ -122,29 +123,27 @@ with t_col2:
         cols = st.columns(7)
         for i, day in enumerate(week):
             if day != 0:
-                curr = date(year, month, day).isoformat()
-                # 해당 날짜에 읽은 책이 있는지 확인
-                is_reading = any(b.get("start") <= curr <= b.get("end") for b in st.session_state.collection if b.get("start") and b.get("end"))
-                
+                curr = date(st.session_state.cal_year, st.session_state.cal_month, day).isoformat()
                 with cols[i]:
-                    st.write(f"**{day}**")
-                    if is_reading:
-                        # 책 표지 대신 📖 이모지 표시
-                        st.markdown("<div class='cal-book-emoji'>📖</div>", unsafe_allow_html=True)
+                    # 날짜 숫자
+                    st.markdown(f"<div class='cal-day-num'>{day}</div>", unsafe_allow_html=True)
+                    # ✅ 해당 날짜에 읽은 책이 있으면 이모지를 날짜 바로 밑에 딱 붙여서 표시
+                    for b in st.session_state.collection:
+                        if b["start"] <= curr <= b["end"]: 
+                            st.markdown("<div class='cal-book-emoji'>📖</div>", unsafe_allow_html=True)
 
 st.divider()
 
-# --- 🔍 ✅ 검색 섹션 (디자인 업그레이드) ---
-# 글씨 크기 키우고 볼드체 적용
-st.markdown("<p class='search-label'>📖 책 제목 입력</p>", unsafe_allow_html=True)
-query = st.text_input("제목을 입력하고 Enter!", placeholder="예: 먼작귀", label_visibility="collapsed")
+# --- 🔍 ✅ 검색 섹션 (글씨 크기 확대 반영) ---
+# 스타일 시트에서 label 크기를 키웠으므로, text_input을 그대로 사용
+query = st.text_input("📖 책 제목 입력", placeholder="예: 먼작귀", key="search_input")
 
 if query:
     search_url = f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={query}"
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
         res = requests.get(search_url, headers=headers, timeout=10)
-        # 이미지 URL 추출 패턴 보강 (먼작귀 3권 등 엑박 방지)
+        # 이미지 URL 추출 패턴 보강 (엑박 방지)
         raw_imgs = re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover\d*[^"\'\s>]+', res.text)
         imgs = list(dict.fromkeys([url for url in raw_imgs if 'cover' in url]))
 
@@ -173,6 +172,7 @@ st.divider()
 left_col, right_col = st.columns(2)
 
 with left_col:
+    # 읽은 책 모음 제목 크기는 이전과 동일
     st.header("📖 읽은 책 모음")
     if st.session_state.collection:
         b1, b2, b3 = st.columns([1, 1, 1.5])
@@ -194,12 +194,11 @@ with left_col:
             st.download_button("📥 A4 인쇄 미리보기 (PDF)", pdf_buf.getvalue(), f"{st.session_state.user_id}_books.pdf", "application/pdf", use_container_width=True)
             
         st.write("---")
-        # ✅ 목록 내 날짜 수정 기능
-        dcols = st.columns(3)
+        dcols = st.columns(4)
         for idx, itm in enumerate(st.session_state.collection):
-            with dcols[idx % 3]:
+            with dcols[idx % 4]:
                 st.image(itm["img"], use_container_width=True)
-                # 날짜 직접 수정
+                # 날짜 수정 기능도 유지
                 new_dr = st.date_input("기간 수정", [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])], key=f"edit_dr_{idx}")
                 if len(new_dr) == 2:
                     if itm["start"] != new_dr[0].isoformat() or itm["end"] != new_dr[1].isoformat():
