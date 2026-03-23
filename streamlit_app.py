@@ -16,15 +16,31 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 (공백 및 빨간 테두리 제거) ---
+# --- 🎨 스타일 레이아웃 (상단 잘림 방지 집중 수정) ---
 st.markdown(f"""
    <style>
-   .block-container {{ padding-top: 1rem !important; }}
-    
+   /* 🚨 상단 여백을 대폭 늘려 제목 잘림 방지 */
+   .block-container {{ 
+       padding-top: 5rem !important; 
+       max-width: 1200px;
+   }}
+   
+   /* 🚨 제목 스타일: 상단 마진 추가로 여유 공간 확보 */
+   .main-title {{
+       font-size: 42px !important;
+       font-weight: 800 !important;
+       color: #31333F;
+       margin-top: 10px !important;
+       margin-bottom: 30px !important;
+       display: flex;
+       align-items: center;
+       gap: 15px;
+       line-height: 1.2;
+   }}
+
    button[data-baseweb="tab"] {{
        font-size: 20px !important;
        font-weight: bold !important;
-       color: #31333F !important;
    }}
    
    div[data-baseweb="tab-highlight"] {{
@@ -32,15 +48,11 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   /* 🚨 모든 입력창에서 빨간 테두리 제거 */
+   /* 입력창 포커스 시 테두리 고정 (빨간색 방지) */
    input:focus, textarea:focus, select:focus, div[data-baseweb="input"] {{
        border-color: #eeeeee !important;
        box-shadow: none !important;
        outline: none !important;
-   }}
-   div[data-baseweb="input"] > div:focus-within {{
-       border-color: #d3d3d3 !important;
-       box-shadow: none !important;
    }}
 
    [data-testid="stImage"] img {{
@@ -55,28 +67,16 @@ st.markdown(f"""
        width: 100% !important;
        height: 35px !important;
        font-size: 13px !important;
-       margin-top: 0px !important;
    }}
 
-   /* 편집 버튼 위치 및 간격 조정 */
    .stToggle {{
-       margin-top: -10px !important;
-       margin-bottom: 5px !important;
-   }}
-
-   .stat-container {{ text-align: center; }}
-   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }}
-   .genre-card {{
-       background-color: #f8f9fa;
-       border: 1px solid #eee;
-       border-radius: 8px;
-       padding: 4px 10px;
-       text-align: center;
+       margin-top: 5px !important;
+       margin-bottom: 10px !important;
    }}
    </style>
    """, unsafe_allow_html=True)
 
-# --- 데이터 관리 ---
+# --- 📂 데이터 및 세션 관리 ---
 if 'user_id' not in st.session_state:
    st.session_state.user_id = st.query_params.get("user", "치이카와")
  
@@ -114,21 +114,21 @@ def save_all():
    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 상단 레이아웃 ---
-st.title(f"📖 {st.session_state.user_id}의 독서 기록")
+# --- 🚨 커스텀 제목 (잘림 복구 완료) ---
+st.markdown(f'<div class="main-title">📖 {st.session_state.user_id}의 독서 기록</div>', unsafe_allow_html=True)
  
 t_col1, t_col2 = st.columns([1, 4])
 with t_col1:
-   st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">{len(st.session_state.collection)}권</div></div>""", unsafe_allow_html=True)
+   st.markdown(f"""<div style="text-align: center;"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">{len(st.session_state.collection)}권</div></div>""", unsafe_allow_html=True)
 with t_col2:
    if st.session_state.collection:
        counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
-       genre_items = "".join([f"<div class='genre-card'><div style='font-size:11px;color:#888;'>{g}</div><div style='font-size:14px;font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
-       st.markdown(f"""<div style='font-size: 14px; font-weight: bold; color: #333; margin-bottom: 5px;'>📚 장르별 통계</div><div class='genre-wrapper'>{genre_items}</div>""", unsafe_allow_html=True)
+       genre_items = "".join([f"<div style='background:#f8f9fa;border:1px solid #eee;border-radius:8px;padding:4px 10px;text-align:center;'><div style='font-size:11px;color:#888;'>{g}</div><div style='font-size:14px;font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
+       st.markdown(f"""<div style='font-size: 14px; font-weight: bold; color: #333; margin-bottom: 5px;'>📚 장르별 통계</div><div style='display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;'>{genre_items}</div>""", unsafe_allow_html=True)
  
 st.divider()
  
-# --- 검색 (버튼 수평 배치 및 텍스트 수정) ---
+# --- 도서 검색 ---
 st.markdown("### 🔍 새로운 도서 검색")
 q = st.text_input("제목/저자 입력", key="search_input", label_visibility="collapsed")
 if q:
@@ -142,18 +142,18 @@ if q:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
                 
-                # 🚨 읽음/위시 버튼 수평 배치
-                b_col1, b_col2 = st.columns(2)
-                if b_col1.button("📖 읽음", key=f"r_{i}"):
+                # '읽음' '위시' 버튼 수평 배치
+                bc1, bc2 = st.columns(2)
+                if bc1.button("📖 읽음", key=f"r_{i}"):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
                     st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": g_val})
                     save_all(); st.rerun()
-                if b_col2.button("🩵 위시", key=f"w_{i}"):
+                if bc2.button("🩵 위시", key=f"w_{i}"):
                     st.session_state.wishlist.append({"url": url, "genre": g_val}); save_all(); st.rerun()
  
 st.divider()
  
-# --- 탭 영역 ---
+# --- 📑 탭 영역 ---
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
@@ -170,10 +170,8 @@ with tab_lib:
                    with dcols[c]:
                        st.image(itm["img"], use_container_width=True)
                        if edit_mode:
-                           # 🚨 1. 선택 (무조건 위!)
+                           # 🚨 선택 체크박스가 상단 위치
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
-                           
-                           # 🚨 2. 장르 수정 (아래)
                            new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
                            
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
@@ -208,7 +206,7 @@ with tab_lib:
 with tab_wish:
    if st.session_state.wishlist:
        wish_edit = st.toggle("🔧 위시 편집 모드")
-       # 🚨 위시리스트 공백 복구
+       # 위시리스트 공백 유지
        st.markdown("<br>", unsafe_allow_html=True) 
        
        rows_w = (len(st.session_state.wishlist) + 3) // 4
