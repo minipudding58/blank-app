@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 1. 기본 설정 (인쇄 및 A4 규격) ---
+# --- ⚙️ 1. 기본 설정 (인쇄 규격 및 화면 구성) ---
 DPI = 300
 TARGET_H_PX_PRINT = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,12 +16,12 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (사이드바 복구 + 빨간 테두리 제거 + 이미지 고정) ---
+# --- 🎨 2. 스타일 (사이드바 스타일 + 테두리 제거 + 이미지 고정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
     
-    /* 검색창 & 닉네임칸 클릭 시 빨간 테두리 방지 */
+    /* 입력창 클릭 시 빨간 테두리 제거 및 하늘색 강조 */
     div[data-baseweb="input"] {{
         border: 1px solid #ccc !important;
         box-shadow: none !important;
@@ -60,7 +60,7 @@ if 'user_id' not in st.session_state:
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 🔗 4. 데이터 로드 (URL 기반 무적 복구) ---
+# --- 🔗 4. 데이터 로드 (기존 7권 데이터 등 보존) ---
 if 'collection' not in st.session_state:
     st.session_state.collection = []; st.session_state.wishlist = []
     if os.path.exists(USER_DATA_FILE):
@@ -92,7 +92,7 @@ def save_all():
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 5. 사이드바 (기능 보존) ---
+# --- 🏠 5. 사이드바 (로그아웃 및 전체 삭제) ---
 with st.sidebar:
     st.markdown(f"### 👤 **{st.session_state.user_id}** 님의 서재")
     st.write("---")
@@ -107,7 +107,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- 📊 6. 메인 화면 상단 ---
+# --- 📊 6. 메인 화면 상단 (통계) ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write(""); st.write("")
 
@@ -124,24 +124,24 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 7. 책 검색 및 장르 자동 연동 (강화) ---
+# --- 🔍 7. 책 검색 및 장르 자동 연동 (확실한 수동 크롤링 방식) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
-    # 이미지 추출
+    # 이미지 리스트
     imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/(?:product|pimg)/\d+/\d+/cover[^"\'\s>]+', res)))
     
-    # 장르 추출 (강화 패턴: 알라딘의 카테고리 링크 텍스트 정밀 추출)
-    genres_found = re.findall(r'\[<a[^>]+class="ss_f_g_l"[^>]*>([^<]+)</a>\]|\[<a[^>]+>([^<]+)</a>\]', res)
-    refined_genres = [g[0] if g[0] else g[1] for g in genres_found] if genres_found else []
-
+    # 장르 리스트 (ss_f_g_l 클래스를 가진 태그 내 텍스트만 추출)
+    genres_raw = re.findall(r'class="ss_f_g_l"[^>]*>([^<]+)</a>', res)
+    
     if imgs:
         scols = st.columns(4)
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
                 st.image(url, use_container_width=True)
-                g_val = refined_genres[i] if i < len(refined_genres) else "미지정"
+                # 추출된 장르가 있으면 적용, 없으면 미지정
+                g_val = genres_raw[i] if i < len(genres_raw) else "미지정"
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
                 
                 b_cols = st.columns(2)
@@ -158,7 +158,7 @@ if q:
 
 st.divider()
 
-# --- 📚 8. 목록 섹션 (날짜 수정 및 삭제 유지) ---
+# --- 📚 8. 목록 섹션 (인쇄/수정/삭제) ---
 l_col, r_col = st.columns(2)
 with l_col:
     st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
