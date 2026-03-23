@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 ---
+# --- 🎨 스타일 레이아웃 (테두리 색상 수정 및 공백 조정) ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
@@ -32,6 +32,16 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
+   /* 입력창 포커스 시 빨간 테두리 제거 */
+   input:focus {{
+       border-color: #d3d3d3 !important;
+       box-shadow: none !important;
+   }}
+   div[data-baseweb="input"] > div:focus-within {{
+       border-color: #d3d3d3 !important;
+       box-shadow: none !important;
+   }}
+
    [data-testid="stImage"] img {{
        height: 220px !important;
        object-fit: contain !important;
@@ -43,23 +53,13 @@ st.markdown(f"""
    div.stButton > button {{
        width: 100% !important;
        margin-top: 4px !important;
-       height: 35 : px !important;
+       height: 35px !important;
        font-size: 13px !important;
    }}
 
-   .stat-container {{ text-align: center; }}
-   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; }}
-   .genre-card {{
-       background-color: #f8f9fa;
-       border: 1px solid #eee;
-       border-radius: 8px;
-       padding: 4px 10px;
-       text-align: center;
-   }}
-   
-   /* 위시리스트 상단 공백 클래스 */
+   /* 위시리스트 상단 공백 (한 칸 줄임) */
    .wish-top-spacer {{
-       height: 62px !important;
+       height: 42px !important; 
        display: block;
    }}
    </style>
@@ -93,17 +93,7 @@ def save_all():
  
 # --- 상단 레이아웃 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-st.write(""); st.write("")
- 
-t_col1, t_col2 = st.columns([1, 4])
-with t_col1:
-   st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>""", unsafe_allow_html=True)
- 
-with t_col2:
-   if st.session_state.collection:
-       counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
-       genre_items = "".join([f"<div class='genre-card'><div style='font-size:11px;color:#888;'>{g}</div><div style='font-size:14px;font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
-       st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
+st.write(""); st.write("") # 기존 상단 공백 유지
  
 st.divider()
  
@@ -179,7 +169,7 @@ with tab_lib:
        st.info("아직 서재가 비어있습니다.")
 
 with tab_wish:
-   st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True) # 공백 추가
+   st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True) # 공백 한 칸 줄임
    if st.session_state.wishlist:
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
@@ -195,7 +185,7 @@ with tab_wish:
                         st.caption(f"장르: {item.get('genre', '미지정')}")
                         
                         wb_cols = st.columns(2)
-                        if wb_cols[0].button("✅읽음", key=f"wr_{idx}"): # 완료 -> 읽음 변경
+                        if wb_cols[0].button("✅읽음", key=f"wr_{idx}"): 
                             st.session_state.collection.append({"img": img_obj, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
                         if wb_cols[1].button("🗑️", key=f"w_d_{idx}"):
