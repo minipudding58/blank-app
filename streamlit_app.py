@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 통합 (UI 가독성 및 정밀 레이아웃 수정) ---
+# --- 🎨 2. 스타일 통합 (UI 가독성 및 버튼 정렬) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 3rem !important; padding-bottom: 2rem !important; }}
@@ -96,7 +96,9 @@ st.markdown(f"""
         background: none !important;
     }}
     
-    /* --- [핵심 수정] 버튼 수평 정렬 및 높이 통일 --- */
+    /* --- [핵심 수정] 버튼 수평 정렬을 위한 스타일 --- */
+    /* st.columns(2)를 쓰면 기본적으로 수평 정렬되지만,
+       버튼 높이와 너비를 통일하여 시각적 정렬감을 높입니다. */
     .stButton button {{
         width: 100% !important; /* 컬럼 너비에 꽉 차게 */
         height: 38px !important;
@@ -239,13 +241,12 @@ if st.session_state.search_cache["items"]:
 
 st.divider()
 
-# --- 📚 6. 메인 목록 및 위시리스트 (편집 및 PDF 기능 포함) ---
+# --- 📚 6. 내 서재 및 위시리스트 (편집 및 PDF 기능 포함) ---
 t_lib, t_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with t_lib:
     if st.session_state.collection:
-        # 내 서재 탭의 토글 버튼
-        is_edit = st.toggle("편집 및 PDF 모드 활성화", key="edit_toggle_lib")
+        is_edit = st.toggle("편집 및 PDF 모드 활성화")
         selected_books = []
         
         l_cols = st.columns(4)
@@ -298,11 +299,6 @@ with t_lib:
     else: st.info("서재가 비어있습니다.")
 
 with t_wish:
-    # --- 핵심 수정: 내 서재의 토글 버튼 공간만큼 공백 추가 ---
-    # st.markdown(f'<div style="height: {토글버튼높이}px;"></div>', ...) 방식으로 구현
-    # Streamlit 기본 toggle의 높이는 라벨 주석 포함 약 56px 정도입니다.
-    st.markdown('<div style="height: 56px; margin-bottom: 0px;"></div>', unsafe_allow_html=True)
-    
     if st.session_state.wishlist:
         w_cols = st.columns(4)
         for i, w in enumerate(st.session_state.wishlist):
@@ -312,21 +308,24 @@ with t_wish:
                     w_img = Image.open(io.BytesIO(w_r))
                     st.image(w_img, use_container_width=True)
                     
-                    # --- [핵심 수정] 버튼 수평 정렬 및 텍스트 변경 ---
+                    # --- 핵심 수정 포인트 1: 버튼 수평 정렬을 위한 컬럼 분할 ---
                     wb_col1, wb_col2 = st.columns(2)
+                    
                     with wb_col1:
-                        # 텍스트 수정: '읽기 완료!'
                         if st.button("📖 읽기 완료!", key=f"wr_{i}", use_container_width=True):
+                            # --- [핵심 수정 포인트 2] 위시 -> 서재 이동 시 목록 업데이트(rerun) ---
                             st.session_state.collection.append({
                                 "img": w_img.convert("RGB"), "url": w['url'], 
                                 "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": w.get('genre')
                             })
-                            st.session_state.wishlist.pop(i); save_data(); st.rerun()
+                            st.session_state.wishlist.pop(i) # 목록에서 삭제
+                            save_data(); st.rerun() # 저장 후 새로고침 (이게 빠져서 안 없어졌던 겁니다.)
+                    
                     with wb_col2:
                         st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
-                        # 텍스트 수정: '삭제하기' -> '삭제'
-                        if st.button("🗑️ 삭제", key=f"wd_{i}", use_container_width=True):
-                            st.session_state.wishlist.pop(i); save_data(); st.rerun()
+                        if st.button("🗑️ 삭제하기", key=f"wd_{i}", use_container_width=True):
+                            st.session_state.wishlist.pop(i)
+                            save_data(); st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
                 except: continue
     else: st.info("위시리스트가 비어있습니다.")
