@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 1. 기본 설정 (고해상도 PDF 및 레이아웃) ---
+# --- ⚙️ 1. 기본 설정 (절대 고정) ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,23 +16,20 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 통합 (공백 최적화 버전) ---
+# --- 🎨 2. 스타일 통합 (공백 최적화 및 편집모드 하늘색 테마) ---
 st.markdown(f"""
     <style>
-    /* 전체 배경 및 상단 여백 설정 */
     .block-container {{ padding-top: 3rem !important; padding-bottom: 2rem !important; }}
     
-    /* [상단] 메인 타이틀 - 하단 마진을 대폭 줄여 공백 제거 */
     .main-title {{ 
         font-size: 36px; 
         font-weight: bold; 
         color: #31333F; 
-        margin-bottom: 10px !important; /* 공백 절반 이하로 축소 */
+        margin-bottom: 10px !important;
         line-height: 1.2;
         display: block;
     }}
 
-    /* [상단] 대시보드 레이아웃 - 상단 패딩과 마진을 줄여 타이틀에 밀착 */
     .top-header-wrapper {{
         display: flex;
         justify-content: flex-start;
@@ -40,7 +37,7 @@ st.markdown(f"""
         gap: 80px;
         margin-top: 0px !important;
         margin-bottom: 25px;
-        padding: 10px 0 !important; /* 패딩 축소 */
+        padding: 10px 0 !important;
     }}
     
     .header-label {{ 
@@ -70,7 +67,6 @@ st.markdown(f"""
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }}
     
-    /* 탭 스타일 */
     .stTabs [data-baseweb="tab"] p {{
         font-size: 18px !important;
         font-weight: bold !important;
@@ -86,7 +82,6 @@ st.markdown(f"""
         height: 4px !important;
     }}
 
-    /* 목록 이미지 설정 */
     [data-testid="stImage"] img {{ 
         height: 210px !important; 
         object-fit: contain !important; 
@@ -95,19 +90,36 @@ st.markdown(f"""
     }}
     .date-text {{ font-size: 14px; color: #888; display: block; margin-top: 8px; }}
 
-    /* 편집 모드 스타일 */
-    .edit-label-red label {{ color: #ff6b6b !important; font-weight: bold !important; }}
-    .edit-btn-red button p {{ color: #ff6b6b !important; font-weight: bold !important; }}
+    /* --- 편집 모드 하늘색 테마 --- */
+    /* 토글 스위치 색상 변경 */
+    div[data-testid="stWidgetLabel"] p {{ color: #31333F; }}
+    .stCheckbox [data-testid="stMarkdownContainer"] p {{ color: #31333F !important; font-weight: bold !important; }}
     
+    /* 수정 버튼 및 체크박스 강조색 (하늘색) */
+    .edit-btn-blue button {{
+        border: 1px solid #87CEEB !important;
+        background-color: white !important;
+    }}
+    .edit-btn-blue button p {{ color: #87CEEB !important; font-weight: bold !important; }}
+    
+    /* 체크박스 색상 커스텀 */
+    input[type="checkbox"]:checked + div {{
+        background-color: #87CEEB !important;
+        border-color: #87CEEB !important;
+    }}
+
     input, div[data-baseweb="input"], .stTextInput div {{ 
         border: none !important; 
         background-color: #f9f9f9 !important;
         border-radius: 6px !important;
     }}
     
-    div.stButton > button {{
-        height: 42px !important;
-        border-radius: 8px !important;
+    /* 버튼 수평 정렬을 위한 높이 강제 통일 */
+    .stButton button {{
+        height: 38px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -162,7 +174,7 @@ def save_data():
     except Exception as e:
         st.error(f"저장 중 오류: {e}")
 
-# --- 📊 4. 상단 대시보드 (수정된 공백 적용) ---
+# --- 📊 4. 상단 대시보드 (절대 고정 구역) ---
 st.markdown(f"<div class='main-title'>📖 {st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
 
 st.markdown('<div class="top-header-wrapper">', unsafe_allow_html=True)
@@ -187,7 +199,7 @@ with h_col2:
 st.markdown('</div>', unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 책 검색 ---
+# --- 🔍 5. 책 검색 (절대 고정 구역) ---
 st.markdown("<span class='header-label'>🔍 책 검색</span>", unsafe_allow_html=True)
 search_q = st.text_input("검색어 입력", placeholder="제목 또는 저자를 입력하세요...", label_visibility="collapsed")
 
@@ -196,7 +208,6 @@ if search_q:
         res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={search_q}", headers={"User-Agent": "Mozilla/5.0"}).text
         imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/[^"\'\s>]+cover[^"\'\s>]+', res)))
         genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
-        
         if imgs:
             s_cols = st.columns(4)
             for i, url in enumerate(imgs[:4]):
@@ -222,11 +233,12 @@ if search_q:
 
 st.divider()
 
-# --- 📚 6. 메인 목록 ---
+# --- 📚 6. 메인 목록 (수정 구역) ---
 t_lib, t_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with t_lib:
     if st.session_state.collection:
+        # 1. 토글 색상은 하늘색 테마 반영됨
         is_edit = st.toggle("편집 및 PDF 모드 활성화")
         sel_idx = []
         l_cols = st.columns(4)
@@ -234,23 +246,39 @@ with t_lib:
             with l_cols[i % 4]:
                 st.image(item["img"], use_container_width=True)
                 if is_edit:
-                    st.markdown('<div class="edit-label-red">', unsafe_allow_html=True)
-                    if st.checkbox("인쇄 선택", key=f"pc_{i}", value=True): sel_idx.append(i)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # 2. 인쇄 선택 -> 표지 선택 변경 및 체크박스
+                    if st.checkbox("표지 선택", key=f"pc_{i}", value=True): sel_idx.append(i)
+                    
                     e_genre = st.text_input("장르", value=item.get('genre', '미지정'), key=f"eg_{i}", label_visibility="collapsed")
-                    try: d_val = [date.fromisoformat(item["start"]), date.fromisoformat(item["end"])]
-                    except: d_val = [date.today(), date.today()]
+                    
+                    try: d_val = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
+                    except: d_val = (date.today(), date.today())
+                    
                     e_date = st.date_input("기간", d_val, key=f"ed_{i}", label_visibility="collapsed")
-                    eb_c = st.columns([2, 1])
-                    with eb_c[0]:
-                        st.markdown('<div class="edit-btn-red">', unsafe_allow_html=True)
-                        if st.button("저장", key=f"es_{i}", use_container_width=True):
-                            if isinstance(e_date, list) and len(e_date) == 2:
-                                st.session_state.collection[i].update({"genre": e_genre, "start": e_date[0].isoformat(), "end": e_date[1].isoformat()})
-                                save_data(); st.rerun()
+                    
+                    # 3. 버튼 수평 정렬 (columns 사용)
+                    btn_cols = st.columns([1, 1])
+                    with btn_cols[0]:
+                        st.markdown('<div class="edit-btn-blue">', unsafe_allow_html=True)
+                        if st.button("수정", key=f"es_{i}", use_container_width=True):
+                            # 기간 데이터 처리 보완
+                            s_date = e_date[0].isoformat() if isinstance(e_date, (list, tuple)) else e_date.isoformat()
+                            en_date = e_date[1].isoformat() if isinstance(e_date, (list, tuple)) and len(e_date) > 1 else s_date
+                            
+                            # 데이터 업데이트 (장르 포함)
+                            st.session_state.collection[i].update({
+                                "genre": e_genre, 
+                                "start": s_date, 
+                                "end": en_date
+                            })
+                            save_data()
+                            st.rerun() # 상단 통계 즉시 반영을 위해 리런
                         st.markdown('</div>', unsafe_allow_html=True)
-                    if eb_c[1].button("❌", key=f"edl_{i}"):
-                        st.session_state.collection.pop(i); save_data(); st.rerun()
+                    with btn_cols[1]:
+                        if st.button("❌ 삭제", key=f"edl_{i}", use_container_width=True):
+                            st.session_state.collection.pop(i)
+                            save_data()
+                            st.rerun()
                 else:
                     st.caption(f"장르: {item.get('genre')}")
                     d_str = f"{item.get('start','').replace('-','/')} - {item.get('end','').replace('-','/')}"
