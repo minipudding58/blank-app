@@ -58,10 +58,28 @@ st.markdown(f"""
         height: 35px !important;
         font-size: 14px !important;
     }}
+
+    /* 탭 디자인 커스텀 */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 10px;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        height: 45px;
+        white-space: pre-wrap;
+        background-color: #f8f9fa;
+        border-radius: 8px 8px 0px 0px;
+        gap: 1px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }}
+    .stTabs [aria-selected="true"] {{
+        background-color: #e8f4f8 !important;
+        font-weight: bold !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🗝️ 3. 로그인 및 세션 관리 (새로고침 유지) ---
+# --- 🗝️ 3. 로그인 및 세션 관리 ---
 if "user" in st.query_params:
     st.session_state.user_id = st.query_params["user"]
 
@@ -148,12 +166,11 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 7. [중단] 책 검색 (장르 자동 추출 제거) ---
+# --- 🔍 7. [중단] 책 검색 (수동 입력 유지) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
-    # 가장 확실한 이미지 URL 패턴으로만 검색 결과 추출
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/(?:product|pimg)/\d+/\d+/cover[^"\'\s>]+', res)))
     
     if imgs:
@@ -161,7 +178,6 @@ if q:
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
                 st.image(url, use_container_width=True)
-                # 장르 자동 추출을 삭제하고 기본값 "미지정"으로 수동 입력창 제공
                 sel_genre = st.text_input("장르 직접 입력", value="미지정", key=f"sg_{i}", label_visibility="collapsed")
                 
                 b_cols = st.columns(2)
@@ -180,21 +196,22 @@ if q:
 
 st.divider()
 
-# --- 📚 8. [하단] 목록 섹션 ---
-l_col, r_col = st.columns(2)
-with l_col:
-    st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
+# --- 📚 8. [하단] 탭 형태의 목록 관리 (내 서재 / 위시리스트) ---
+tab_library, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
+
+with tab_library:
+    st.write("")
     if st.session_state.collection:
-        p_idx = []; del_m = st.toggle("삭제 모드")
-        dcols = st.columns(3)
+        p_idx = []; del_m = st.toggle("삭제 모드", key="del_lib")
+        dcols = st.columns(4) # 서재는 4열로 더 넓게 배치
         for idx, itm in enumerate(st.session_state.collection):
-            with dcols[idx % 3]:
+            with dcols[idx % 4]:
                 st.image(itm["img"], use_container_width=True)
-                if st.checkbox("인쇄", key=f"p_{idx}", value=True): p_idx.append(idx)
+                if st.checkbox("인쇄 선택", key=f"p_{idx}", value=True): p_idx.append(idx)
                 st.caption(f"장르: {itm.get('genre', '미지정')}")
                 try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                 except: val = [date.today(), date.today()]
-                new_dr = st.date_input("날짜", val, key=f"ed_{idx}", label_visibility="collapsed")
+                new_dr = st.date_input("읽은 기간", val, key=f"ed_{idx}", label_visibility="collapsed")
                 
                 b_edit_cols = st.columns([2, 1])
                 if b_edit_cols[0].button("수정", key=f"sv_{idx}", use_container_width=True):
@@ -204,6 +221,7 @@ with l_col:
                 if del_m and b_edit_cols[1].button("❌", key=f"dc_{idx}", use_container_width=True):
                     st.session_state.collection.pop(idx); save_all(); st.rerun()
         
+        st.write("---")
         if p_idx:
             sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
             x, y = 100, 100
@@ -214,26 +232,32 @@ with l_col:
                 if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX + 40
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
             buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
-            st.download_button(f"📥 {len(p_idx)}권 PDF 저장", buf.getvalue(), "books.pdf")
+            st.download_button(f"📥 선택한 {len(p_idx)}권 PDF 저장", buf.getvalue(), "my_library.pdf", use_container_width=True)
+    else:
+        st.info("아직 서재에 담긴 책이 없습니다.")
 
-with r_col:
-    st.markdown("<span class='section-title'>🩵 위시리스트</span>", unsafe_allow_html=True)
+with tab_wish:
+    st.write("")
     if st.session_state.wishlist:
-        wcols = st.columns(3)
+        wcols = st.columns(4)
         for i, item in enumerate(st.session_state.wishlist):
-            with wcols[i % 3]:
+            with wcols[i % 4]:
                 url = item.get('url') if isinstance(item, dict) else item
-                r_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
-                st.image(img_obj, use_container_width=True)
-                st.caption(item.get('genre', '미지정') if isinstance(item, dict) else "미지정")
-                wb_cols = st.columns(2)
-                if wb_cols[0].button("✅읽음", key=f"wr_{i}", use_container_width=True):
-                    st.session_state.collection.append({
-                        "img": img_obj, "url": url, 
-                        "start": date.today().isoformat(), "end": date.today().isoformat(), 
-                        "genre": item.get('genre', '미지정') if isinstance(item, dict) else "미지정"
-                    })
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
-                if wb_cols[1].button("🗑️", key=f"w_d_{i}", use_container_width=True):
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
+                try:
+                    r_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
+                    img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
+                    st.image(img_obj, use_container_width=True)
+                    st.caption(f"장르: {item.get('genre', '미지정') if isinstance(item, dict) else '미지정'}")
+                    wb_cols = st.columns(2)
+                    if wb_cols[0].button("📖 읽음 완료", key=f"wr_{i}", use_container_width=True):
+                        st.session_state.collection.append({
+                            "img": img_obj, "url": url, 
+                            "start": date.today().isoformat(), "end": date.today().isoformat(), 
+                            "genre": item.get('genre', '미지정') if isinstance(item, dict) else "미지정"
+                        })
+                        st.session_state.wishlist.pop(i); save_all(); st.rerun()
+                    if wb_cols[1].button("🗑️ 삭제", key=f"w_d_{i}", use_container_width=True):
+                        st.session_state.wishlist.pop(i); save_all(); st.rerun()
+                except: st.error("이미지 로드 실패")
+    else:
+        st.info("위시리스트가 비어 있습니다.")
