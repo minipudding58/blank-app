@@ -9,49 +9,58 @@ from datetime import datetime, date
 from collections import Counter
 
 # ==========================================
-# ⚙️ 1. 전역 설정 및 상수
+# ⚙️ 1. 전역 설정 및 상수 (반응형 완전 배제, 고정형 레이아웃)
 # ==========================================
 DPI = 300
-TARGET_H_PX = int((40 / 25.4) * DPI)
-A4_W_PX = int((210 / 25.4) * DPI)
-A4_H_PX = int((297 / 25.4) * DPI)
+TARGET_H_PX = int((40 / 25.4) * DPI)  # 책 표지 높이 약 40mm 기준
+A4_W_PX = int((210 / 25.4) * DPI)     # A4 너비 (픽셀)
+A4_H_PX = int((297 / 25.4) * DPI)     # A4 높이 (픽셀)
 
 st.set_page_config(
     page_title="나의 독서 기록장",
     page_icon="📖",
-    layout="wide",
+    layout="wide", # 전체 와이드 모드는 유지하되 내부를 고정
     initial_sidebar_state="collapsed"
 )
 
 # ==========================================
-# 🎨 2. 스타일 시트 (수평 밀착 정렬)
+# 🎨 2. 스타일 시트 (모든 버튼 수평 밀착 고정)
 # ==========================================
 st.markdown(f"""
     <style>
-    .block-container {{ padding-top: 2.5rem !important; max-width: 1200px; }}
+    .block-container {{ 
+        padding-top: 2.5rem !important; 
+        padding-bottom: 2rem !important; 
+        max-width: 1200px; # 전체 너비 제한
+    }}
     
     .main-title {{ 
-        font-size: 44px; font-weight: 800; color: #1E1E1E; 
-        margin-bottom: 55px !important; letter-spacing: -0.5px !important; line-height: 1.6 !important; 
-        padding-top: 15px; font-family: 'Pretendard', sans-serif;
+        font-size: 44px; 
+        font-weight: 800; 
+        color: #1E1E1E; 
+        margin-bottom: 55px !important; 
+        letter-spacing: -0.5px !important; 
+        line-height: 1.6 !important; 
+        padding-top: 15px;
+        font-family: 'Pretendard', sans-serif;
     }}
-
-    /* 버튼 수평 강제 고정 */
+    
+    /* 모든 버튼 행 강제 수평 밀착 */
     div[data-testid="column"] {{
-        width: fit-content !important;
-        flex: none !important;
+        width: fit-content !important; # 컬럼 너비를 내용물에 맞춤
+        flex: none !important; # 유연성 제거
     }}
 
     div[data-testid="stHorizontalBlock"] {{
-        gap: 8px !important;
-        justify-content: flex-start !important;
-        align-items: center !important;
+        gap: 10px !important; # 버튼 사이 간격을 10px로 고정
+        justify-content: flex-start !important; # 왼쪽 밀착
+        align-items: center !important; # 수평 정렬
     }}
 
-    /* 버튼 스타일 및 크기 통일 */
+    /* 버튼 기본 스타일 및 크기 고정 */
     .stButton button {{
-        width: 90px !important;
-        height: 38px !important;
+        width: 100px !important; 
+        height: 40px !important;
         border-radius: 8px !important; 
         font-weight: 600 !important;
         font-size: 14px !important;
@@ -61,9 +70,10 @@ st.markdown(f"""
         justify-content: center !important;
     }}
 
+    /* 이미지 스타일 고정 */
     [data-testid="stImage"] img {{ height: 220px !important; object-fit: contain !important; border-radius: 10px; border: 1px solid #F0F0F0; }}
     
-    /* 삭제 버튼 빨간색 */
+    /* 삭제 버튼 빨간색 스타일 고정 */
     .del-btn-red button {{ 
         background-color: transparent !important; 
         border: 1px solid #FF6B6B !important; 
@@ -71,23 +81,29 @@ st.markdown(f"""
     }}
     .del-btn-red button p {{ color: #FF6B6B !important; }}
     
+    /* 날짜 텍스트 스타일 고정 */
+    .date-text {{ font-size: 13px; color: #999; display: block; margin-top: 4px; }}
+    
+    /* 대시보드 스타일 고정 */
     .header-label {{ font-size: 16px !important; font-weight: 600 !important; color: #666 !important; margin-bottom: 12px; display: block; }}
     .total-count-display {{ font-size: 56px; font-weight: 900; color: #87CEEB; line-height: 1; }}
-    .date-text {{ font-size: 13px; color: #999; display: block; margin-top: 4px; }}
+    .genre-card-item {{ background-color: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 14px; padding: 12px 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03); min-width: 90px; }}
     </style>
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 🗝️ 3. 데이터 관리 로직
+# 🗝️ 3. 데이터 및 세션 관리
 # ==========================================
 if 'user_id' not in st.session_state:
-    if "user" in st.query_params: st.session_state.user_id = st.query_params["user"]
-    else:
-        st.markdown("<div class='main-title'>📖 독서 기록장 입장</div>", unsafe_allow_html=True)
-        u_input = st.text_input("닉네임", placeholder="예: 먼작귀", label_visibility="collapsed")
-        if st.button("입장") and u_input:
-            st.session_state.user_id = u_input; st.query_params["user"] = u_input; st.rerun()
-        st.stop()
+    try:
+        if "user" in st.query_params: st.session_state.user_id = st.query_params["user"]
+        else:
+            st.markdown("<div class='main-title'>📖 독서 기록장 입장</div>", unsafe_allow_html=True)
+            u_input = st.text_input("닉네임을 입력하세요", placeholder="예: 먼작귀", label_visibility="collapsed")
+            if st.button("입장하기") and u_input:
+                st.session_state.user_id = u_input; st.query_params["user"] = u_input; st.rerun()
+            st.stop()
+    except: st.stop()
 
 USER_DATA_PATH = f"data_{st.session_state.user_id}.json"
 
@@ -122,13 +138,13 @@ with h_c2:
     st.markdown("<span class='header-label'>📚 장르 현황</span>", unsafe_allow_html=True)
     if st.session_state.collection:
         stats = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
-        stat_html = "".join([f"<div style='background:#fff; border:1px solid #eee; padding:10px; border-radius:12px; min-width:80px; text-align:center;'>{g}<br><b>{c}권</b></div>" for g, c in stats.items()])
+        stat_html = "".join([f"<div class='genre-card-item'>{g}<br><b>{c}권</b></div>" for g, c in stats.items()])
         st.markdown(f"<div style='display:flex; gap:10px;'>{stat_html}</div>", unsafe_allow_html=True)
 
 st.divider()
 
 # ==========================================
-# 🔍 5. 검색 및 추가 (수평 밀착)
+# 🔍 5. 검색 및 추가 (수평 밀착 적용)
 # ==========================================
 q_in = st.text_input("🔍 새로운 도서 검색", placeholder="제목/저자 입력")
 if q_in and q_in != st.session_state.search_cache["query"]:
@@ -143,7 +159,7 @@ if st.session_state.search_cache["items"]:
     for idx, item in enumerate(st.session_state.search_cache["items"]):
         with s_cols[idx]:
             st.image(item["url"])
-            # 검색 버튼 수평 고정
+            # 검색 결과 버튼 수평 밀착
             btn_c1, btn_c2, _ = st.columns([1, 1, 1.5])
             with btn_c1:
                 if st.button("📖 읽음", key=f"s_add_{idx}"):
@@ -158,7 +174,7 @@ if st.session_state.search_cache["items"]:
 st.divider()
 
 # ==========================================
-# 📚 6. 메인 탭 영역 (수평 고정)
+# 📚 6. 메인 탭 영역 (수평 고정 적용)
 # ==========================================
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
