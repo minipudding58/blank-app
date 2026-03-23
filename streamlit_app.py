@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (폰트 크기 18px 및 탭 간격 100px로 확실히 수정) ---
+# --- 🎨 2. 스타일 (폰트 크기 강제 적용 및 간격/선 최적화) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
@@ -35,7 +35,7 @@ st.markdown(f"""
     .genre-label {{ font-size: 12px; color: #888; }}
     .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
 
-    /* [기준] 타이틀 및 섹션 폰트: 18px, Bold */
+    /* [기준] 타이틀 폰트: 18px, Bold */
     .section-title {{ 
         font-size: 18px !important; 
         font-weight: bold !important; 
@@ -44,37 +44,42 @@ st.markdown(f"""
         color: #31333F;
     }}
 
-    /* 책 이미지 세로 길이 고정 (200px) */
+    /* 탭 디자인 (책 검색 타이틀과 동일한 크기/굵기 강제 적용) */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 0px !important;
+        background-color: transparent !important;
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        background-color: transparent !important;
+        border: none !important;
+        padding-left: 40px !important;  /* 선 길이를 확보하기 위한 좌우 패딩 */
+        padding-right: 40px !important;
+        margin-right: 40px !important;  /* 탭 사이 간격 */
+    }}
+    /* 탭 내부 글자 크기를 18px로 강제 수정 */
+    .stTabs [data-baseweb="tab"] p {{
+        font-size: 18px !important;
+        font-weight: bold !important;
+        color: #31333F !important;
+    }}
+
+    /* 하단 하늘색 강조선 (얇게 2px) */
+    .stTabs [data-baseweb="tab-highlight"] {{
+        background-color: #87CEEB !important;
+        height: 2px !important;
+    }}
+
+    /* 이미지 및 버튼 스타일 */
     [data-testid="stImage"] img {{
         height: 200px !important;
         object-fit: contain !important;
         background-color: #f9f9f9;
         border-radius: 5px;
     }}
-
-    /* 탭 디자인 수정 */
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 100px !important; /* 탭 사이 간격을 100px로 대폭 늘려 선 길이를 확보함 */
-        background-color: transparent !important;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        height: 60px !important;
-        background-color: transparent !important;
-        border: none !important;
-        
-        /* '책 검색' 타이틀과 동일하게 18px, 볼드 적용 */
-        font-size: 18px !important; 
-        font-weight: bold !important; 
-        color: #31333F !important;
-    }}
-    
-    /* 선택된 탭 강조선 (얇은 2px 하늘색) */
-    .stTabs [aria-selected="true"] {{
-        color: #31333F !important;
-    }}
-    .stTabs [data-baseweb="tab-highlight"] {{
-        background-color: #87CEEB !important;
-        height: 2px !important; 
+    div.stButton > button {{
+        padding: 2px 5px !important;
+        height: 35px !important;
+        font-size: 14px !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -94,7 +99,7 @@ if 'user_id' not in st.session_state:
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 🔗 4. 데이터 로드 및 저장 ---
+# --- 🔗 4. 데이터 로드 및 저장 함수 ---
 if 'collection' not in st.session_state:
     st.session_state.collection = []; st.session_state.wishlist = []
     if os.path.exists(USER_DATA_FILE):
@@ -131,20 +136,14 @@ with st.sidebar:
     st.markdown(f"### 👤 **{st.session_state.user_id}** 님의 서재")
     st.write("---")
     if st.button("🚪 로그아웃", use_container_width=True):
-        st.query_params.clear()
-        st.session_state.clear()
-        st.rerun()
-    st.write("")
-    if st.button("🗑️ 내 데이터 전체 삭제", use_container_width=True):
-        if os.path.exists(USER_DATA_FILE):
-            os.remove(USER_DATA_FILE)
-        st.query_params.clear()
-        st.session_state.clear()
-        st.rerun()
+        st.query_params.clear(); st.session_state.clear(); st.rerun()
+    if st.button("🗑️ 내 데이터 삭제", use_container_width=True):
+        if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
+        st.query_params.clear(); st.session_state.clear(); st.rerun()
 
-# --- 📊 6. [최상단] 타이틀 및 통계 ---
+# --- 📊 6. 상단 통계 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-st.write(""); st.write("")
+st.write("")
 
 t_col1, t_col2 = st.columns([1, 4])
 with t_col1:
@@ -154,49 +153,40 @@ with t_col1:
             <div style="font-size: 40px; font-weight: bold; color: #87CEEB;">✨{len(st.session_state.collection)}권✨</div>
         </div>
     """, unsafe_allow_html=True)
-
 with t_col2:
     st.markdown("<span class='section-title'>📚 장르별 독서 현황</span>", unsafe_allow_html=True)
     if st.session_state.collection:
         counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
         genre_items = "".join([f"<div class='genre-card'><div class='genre-label'>{g}</div><div class='genre-value'>{c}권</div></div>" for g, c in counts.items()])
         st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
-    else:
-        st.caption("기록이 없습니다.")
+    else: st.caption("기록이 없습니다.")
 
 st.divider()
 
-# --- 🔍 7. [중단] 책 검색 ---
+# --- 🔍 7. 책 검색 섹션 ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/(?:product|pimg)/\d+/\d+/cover[^"\'\s>]+', res)))
-    
     if imgs:
         scols = st.columns(4)
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
                 st.image(url, use_container_width=True)
-                sel_genre = st.text_input("장르 직접 입력", value="미지정", key=f"sg_{i}", label_visibility="collapsed")
-                
+                sel_genre = st.text_input("장르", value="미지정", key=f"sg_{i}", label_visibility="collapsed")
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                    st.session_state.collection.append({
-                        "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
-                        "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre
-                    })
+                    st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
                     save_all(); st.rerun()
                 if b_cols[1].button("🩵 위시", key=f"w_{i}", use_container_width=True):
-                    st.session_state.wishlist.append({"url": url, "genre": sel_genre})
-                    save_all(); st.rerun()
-    else:
-        st.warning("검색 결과가 없습니다.")
+                    st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
+    else: st.warning("검색 결과가 없습니다.")
 
 st.divider()
 
-# --- 📚 8. [하단] 탭 형태 목록 ---
+# --- 📚 8. 하단 탭 (내 서재 & 위시리스트) ---
 tab_library, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_library:
@@ -212,7 +202,6 @@ with tab_library:
                 try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                 except: val = [date.today(), date.today()]
                 new_dr = st.date_input("읽은 기간", val, key=f"ed_{idx}", label_visibility="collapsed")
-                
                 b_edit_cols = st.columns([2, 1])
                 if b_edit_cols[0].button("수정", key=f"sv_{idx}", use_container_width=True):
                     if len(new_dr) == 2:
@@ -233,8 +222,7 @@ with tab_library:
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
             buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
             st.download_button(f"📥 선택한 {len(p_idx)}권 PDF 저장", buf.getvalue(), "my_library.pdf", use_container_width=True)
-    else:
-        st.info("아직 서재에 담긴 책이 없습니다.")
+    else: st.info("서재가 비어 있습니다.")
 
 with tab_wish:
     st.write("")
@@ -247,17 +235,12 @@ with tab_wish:
                     r_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
                     img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
                     st.image(img_obj, use_container_width=True)
-                    st.caption(f"장르: {item.get('genre', '미지정') if isinstance(item, dict) else '미지정'}")
+                    st.caption(f"장르: {item.get('genre', '미지정')}")
                     wb_cols = st.columns(2)
                     if wb_cols[0].button("📖 읽음 완료", key=f"wr_{i}", use_container_width=True):
-                        st.session_state.collection.append({
-                            "img": img_obj, "url": url, 
-                            "start": date.today().isoformat(), "end": date.today().isoformat(), 
-                            "genre": item.get('genre', '미지정') if isinstance(item, dict) else "미지정"
-                        })
+                        st.session_state.collection.append({"img": img_obj, "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
                         st.session_state.wishlist.pop(i); save_all(); st.rerun()
                     if wb_cols[1].button("🗑️ 삭제", key=f"w_d_{i}", use_container_width=True):
                         st.session_state.wishlist.pop(i); save_all(); st.rerun()
                 except: st.error("이미지 로드 실패")
-    else:
-        st.info("위시리스트가 비어 있습니다.")
+    else: st.info("위시리스트가 비어 있습니다.")
