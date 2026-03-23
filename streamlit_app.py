@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 (테두리 제거 및 공백 유지) ---
+# --- 🎨 스타일 레이아웃 (빨간 테두리 제거 강제 적용) ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
@@ -32,10 +32,14 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   /* 입력창 포커스 시 빨간 테두리 제거 */
-   input:focus {{
+   /* 🚨 모든 입력창에서 빨간 테두리 제거 (검색창 포함) */
+   input:focus, textarea:focus, select:focus {{
        border-color: #d3d3d3 !important;
        box-shadow: none !important;
+       outline: none !important;
+   }}
+   div[data-baseweb="input"] > div {{
+       border-color: #eeeeee !important;
    }}
    div[data-baseweb="input"] > div:focus-within {{
        border-color: #d3d3d3 !important;
@@ -66,11 +70,6 @@ st.markdown(f"""
        padding: 4px 10px;
        text-align: center;
    }}
-
-   .wish-top-spacer {{
-       height: 42px !important; 
-       display: block;
-   }}
    </style>
    """, unsafe_allow_html=True)
 
@@ -80,24 +79,19 @@ if 'user_id' not in st.session_state:
  
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 사이드바 (사용자 설정 및 관리) ---
+# --- 사이드바 (닉네임 변경 삭제) ---
 with st.sidebar:
     st.markdown(f"### 👤 현재 사용자: **{st.session_state.user_id}**")
-    
-    new_id = st.text_input("닉네임 변경", placeholder="변경할 닉네임 입력...")
-    if st.button("적용하기"):
-        if new_id:
-            st.query_params["user"] = new_id
-            st.rerun()
-
     st.divider()
     
+    # 로그아웃
     if st.button("🚪 로그아웃", use_container_width=True):
         st.query_params.clear()
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()
         
+    # 데이터 삭제
     if st.button("🗑️ 데이터 전체 삭제", use_container_width=True):
         if os.path.exists(USER_DATA_FILE):
             os.remove(USER_DATA_FILE)
@@ -143,7 +137,7 @@ with t_col2:
  
 st.divider()
  
-# --- 도서 검색 ---
+# --- 도서 검색 (빨간 테두리 제거됨) ---
 st.markdown("### 🔍 새로운 도서 검색")
 q = st.text_input("제목/저자 입력", placeholder="검색어를 입력하세요...", key="search_input", label_visibility="collapsed")
 if q:
@@ -167,7 +161,7 @@ if q:
  
 st.divider()
  
-# --- 하단 탭 (내 서재 배치 수정) ---
+# --- 내 서재 (장르가 위! 선택이 아래!) ---
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
@@ -183,12 +177,11 @@ with tab_lib:
                    itm = st.session_state.collection[idx]
                    with dcols[c]:
                        st.image(itm["img"], use_container_width=True)
-                       
                        if edit_mode:
-                           # 🚨 [수정] 장르 수정 칸이 위로!
+                           # 1. 장르 수정 칸 (가장 위)
                            new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
                            
-                           # 🚨 [수정] 선택 체크박스가 장르 아래로!
+                           # 2. 선택 체크박스 (장르 아래)
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
                            
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
@@ -219,11 +212,9 @@ with tab_lib:
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
            sheet.save(buf, format="PDF", resolution=300.0)
            st.download_button(f"📥 선택 PDF 인쇄", buf.getvalue(), "my_books.pdf", use_container_width=True)
-   else:
-       st.info("서재가 비어있습니다.")
+   else: st.info("서재가 비어있습니다.")
 
 with tab_wish:
-   st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True)
    if st.session_state.wishlist:
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
@@ -243,3 +234,4 @@ with tab_wish:
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
                         if wb_cols[1].button("🗑️", key=f"w_d_{idx}"):
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
+   else: st.info("위시리스트가 비어 있습니다.")
