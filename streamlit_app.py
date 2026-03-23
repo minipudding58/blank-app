@@ -58,7 +58,7 @@ st.markdown(f"""
    }}
 
    .stat-container {{ text-align: center; }}
-   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }}
    .genre-card {{
        background-color: #f8f9fa;
        border: 1px solid #eee;
@@ -67,14 +67,21 @@ st.markdown(f"""
        text-align: center;
    }}
 
-   /* 위시리스트 상단 공백 */
    .wish-top-spacer {{
        height: 42px !important; 
        display: block;
    }}
    </style>
    """, unsafe_allow_html=True)
- 
+
+# --- 사이드바 (복구) ---
+with st.sidebar:
+    st.header("👤 사용자 설정")
+    new_user_id = st.text_input("닉네임", value=st.query_params.get("user", "치이카와"))
+    if st.button("적용하기"):
+        st.query_params["user"] = new_user_id
+        st.rerun()
+
 if 'user_id' not in st.session_state:
    st.session_state.user_id = st.query_params.get("user", "치이카와")
  
@@ -101,19 +108,22 @@ def save_all():
    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 상단 레이아웃 (대시보드 복구) ---
+# --- 상단 레이아웃 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write(""); st.write("")
  
 t_col1, t_col2 = st.columns([1, 4])
 with t_col1:
-   st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>""", unsafe_allow_html=True)
+   st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">{len(st.session_state.collection)}권</div></div>""", unsafe_allow_html=True)
  
 with t_col2:
    if st.session_state.collection:
        counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
        genre_items = "".join([f"<div class='genre-card'><div style='font-size:11px;color:#888;'>{g}</div><div style='font-size:14px;font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
-       st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
+       st.markdown(f"""
+            <div style='font-size: 14px; font-weight: bold; color: #333; margin-bottom: 5px;'>📚 장르별 통계</div>
+            <div class='genre-wrapper'>{genre_items}</div>
+       """, unsafe_allow_html=True)
  
 st.divider()
  
@@ -157,8 +167,10 @@ with tab_lib:
                    itm = st.session_state.collection[idx]
                    with dcols[c]:
                        st.image(itm["img"], use_container_width=True)
-                       st.caption(f"장르: {itm.get('genre', '미지정')}")
+                       
                        if edit_mode:
+                           # 장르 수정 칸 추가 (복구 및 개선)
+                           new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                            except: val = [date.today(), date.today()]
@@ -166,11 +178,13 @@ with tab_lib:
                            btn_cols = st.columns(2)
                            if btn_cols[0].button("저장", key=f"sv_{idx}"):
                                if len(new_dr) == 2:
+                                   st.session_state.collection[idx]["genre"] = new_genre
                                    st.session_state.collection[idx]["start"], st.session_state.collection[idx]["end"] = new_dr[0].isoformat(), new_dr[1].isoformat()
                                    save_all(); st.rerun()
                            if btn_cols[1].button("삭제", key=f"dc_{idx}"):
                                st.session_state.collection.pop(idx); save_all(); st.rerun()
                        else:
+                           st.caption(f"장르: {itm.get('genre', '미지정')}")
                            st.text(f"📅 {itm.get('start', '미정')} ~ {itm.get('end', '미정')}")
  
        if edit_mode and p_idx:
