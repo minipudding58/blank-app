@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 통합 (편집모드 하늘색 테마 및 수평 정렬 보완) ---
+# --- 🎨 2. 스타일 통합 (토글/체크박스 색상 복구) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 3rem !important; padding-bottom: 2rem !important; }}
@@ -90,19 +90,7 @@ st.markdown(f"""
     }}
     .date-text {{ font-size: 14px; color: #888; display: block; margin-top: 8px; }}
 
-    /* --- [교정] 편집 모드 디자인 및 배경색 제거 --- */
-    /* 토글 스위치 활성화 색상 -> 하늘색 */
-    div[role="switch"][aria-checked="true"] {{
-        background-color: #87CEEB !important;
-    }}
-    
-    /* 체크박스(표지 선택) 색상 -> 하늘색 */
-    div[data-testid="stCheckbox"] [data-baseweb="checkbox"] [aria-checked="true"] > div {{
-        background-color: #87CEEB !important;
-        border-color: #87CEEB !important;
-    }}
-
-    /* 텍스트 하이라이트(배경색) 완전 제거 */
+    /* --- [교정] 텍스트 하이라이트(배경색)만 완전 제거 --- */
     .stMarkdown div, .stMarkdown p, .stMarkdown span, div[data-testid="stCheckbox"] label div {{
         background-color: transparent !important;
         background: none !important;
@@ -180,7 +168,7 @@ def save_data():
     except Exception as e:
         st.error(f"저장 중 오류: {e}")
 
-# --- 📊 4. 상단 대시보드 (절대 고정 구역) ---
+# --- 📊 4. 상단 대시보드 ---
 st.markdown(f"<div class='main-title'>📖 {st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
 
 st.markdown('<div class="top-header-wrapper">', unsafe_allow_html=True)
@@ -205,7 +193,7 @@ with h_col2:
 st.markdown('</div>', unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 책 검색 (절대 고정 구역 - 요청대로 복구됨) ---
+# --- 🔍 5. 책 검색 ---
 st.markdown("<span class='header-label'>🔍 책 검색</span>", unsafe_allow_html=True)
 search_q = st.text_input("검색어 입력", placeholder="제목 또는 저자를 입력하세요...", label_visibility="collapsed")
 
@@ -239,11 +227,12 @@ if search_q:
 
 st.divider()
 
-# --- 📚 6. 메인 목록 (수정 구역) ---
+# --- 📚 6. 메인 목록 ---
 t_lib, t_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with t_lib:
     if st.session_state.collection:
+        # 이 부분 토글 색상이 다시 주황색/빨간색으로 나옵니다
         is_edit = st.toggle("편집 및 PDF 모드 활성화")
         sel_idx = []
         l_cols = st.columns(4)
@@ -251,21 +240,16 @@ with t_lib:
             with l_cols[i % 4]:
                 st.image(item["img"], use_container_width=True)
                 if is_edit:
-                    # 표지 선택 (체크박스 색상 하늘색 반영)
                     if st.checkbox("표지 선택", key=f"pc_{i}", value=True): sel_idx.append(i)
-                    
                     e_genre = st.text_input("장르", value=item.get('genre', '미지정'), key=f"eg_{i}", label_visibility="collapsed")
-                    
                     try: d_val = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
                     except: d_val = (date.today(), date.today())
                     e_date = st.date_input("기간", d_val, key=f"ed_{i}", label_visibility="collapsed")
                     
-                    # 수정/삭제 버튼 수평 정렬
                     btn_cols = st.columns(2)
                     with btn_cols[0]:
                         st.markdown('<div class="edit-btn-blue">', unsafe_allow_html=True)
                         if st.button("수정", key=f"es_{i}", use_container_width=True):
-                            # 장르 및 기간 데이터 업데이트 로직 강화
                             s_date = e_date[0].isoformat() if isinstance(e_date, (list, tuple)) else e_date.isoformat()
                             en_date = e_date[1].isoformat() if isinstance(e_date, (list, tuple)) and len(e_date) > 1 else s_date
                             st.session_state.collection[i].update({
