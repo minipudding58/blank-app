@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 1. 기본 설정 (인쇄 및 화면 구성) ---
+# --- ⚙️ 1. 기본 설정 (인쇄 및 A4 규격) ---
 DPI = 300
 TARGET_H_PX_PRINT = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,12 +16,12 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (사이드바 + 테두리 제거 + 이미지 높이 고정) ---
+# --- 🎨 2. 스타일 (사이드바 복구 + 빨간 테두리 제거 + 이미지 고정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
     
-    /* 입력창 포커스 시 빨간 테두리 제거 및 하늘색 강조 */
+    /* 검색창 & 닉네임칸 클릭 시 빨간 테두리 방지 */
     div[data-baseweb="input"] {{
         border: 1px solid #ccc !important;
         box-shadow: none !important;
@@ -48,7 +48,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🗝️ 3. 접속 및 세션 관리 ---
+# --- 🗝️ 3. 닉네임 접속 시스템 ---
 if 'user_id' not in st.session_state:
     st.title("📖 독서 기록 시작하기")
     u_input = st.text_input("나만의 닉네임을 입력하세요", placeholder="예: 치이카와")
@@ -60,7 +60,7 @@ if 'user_id' not in st.session_state:
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 🔗 4. 데이터 불러오기 (기존 데이터 복구 로직) ---
+# --- 🔗 4. 데이터 로드 (URL 기반 무적 복구) ---
 if 'collection' not in st.session_state:
     st.session_state.collection = []; st.session_state.wishlist = []
     if os.path.exists(USER_DATA_FILE):
@@ -92,7 +92,7 @@ def save_all():
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 5. 사이드바 메뉴 ---
+# --- 🏠 5. 사이드바 (기능 보존) ---
 with st.sidebar:
     st.markdown(f"### 👤 **{st.session_state.user_id}** 님의 서재")
     st.write("---")
@@ -107,7 +107,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- 📊 6. 상단 통계 현황 ---
+# --- 📊 6. 메인 화면 상단 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write(""); st.write("")
 
@@ -124,7 +124,7 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 7. 책 검색 및 장르 자동 연동 (핵심 수정) ---
+# --- 🔍 7. 책 검색 및 장르 자동 연동 (강화) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
@@ -132,17 +132,16 @@ if q:
     # 이미지 추출
     imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/(?:product|pimg)/\d+/\d+/cover[^"\'\s>]+', res)))
     
-    # 장르 추출 (강화된 패턴: ss_f_g_l 클래스 우선 탐색 후 일반 태그 탐색)
-    # <li> 태그 내부 구조까지 고려하여 정밀 추출
-    genre_blocks = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
-    
+    # 장르 추출 (강화 패턴: 알라딘의 카테고리 링크 텍스트 정밀 추출)
+    genres_found = re.findall(r'\[<a[^>]+class="ss_f_g_l"[^>]*>([^<]+)</a>\]|\[<a[^>]+>([^<]+)</a>\]', res)
+    refined_genres = [g[0] if g[0] else g[1] for g in genres_found] if genres_found else []
+
     if imgs:
         scols = st.columns(4)
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
                 st.image(url, use_container_width=True)
-                # 추출된 장르가 있으면 적용, 없으면 미지정
-                g_val = genre_blocks[i] if i < len(genre_blocks) else "미지정"
+                g_val = refined_genres[i] if i < len(refined_genres) else "미지정"
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
                 
                 b_cols = st.columns(2)
@@ -150,10 +149,7 @@ if q:
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
                     st.session_state.collection.append({
                         "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
-                        "url": url, 
-                        "start": date.today().isoformat(), 
-                        "end": date.today().isoformat(), 
-                        "genre": sel_genre
+                        "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre
                     })
                     save_all(); st.rerun()
                 if b_cols[1].button("🩵 위시", key=f"w_{i}", use_container_width=True):
@@ -162,7 +158,7 @@ if q:
 
 st.divider()
 
-# --- 📚 8. 독서 목록 및 위시리스트 ---
+# --- 📚 8. 목록 섹션 (날짜 수정 및 삭제 유지) ---
 l_col, r_col = st.columns(2)
 with l_col:
     st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
@@ -186,7 +182,6 @@ with l_col:
                 if del_m and b_edit_cols[1].button("❌", key=f"dc_{idx}", use_container_width=True):
                     st.session_state.collection.pop(idx); save_all(); st.rerun()
         
-        # PDF 저장 버튼
         if p_idx:
             sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255)); x, y = 100, 100
             for i in p_idx:
