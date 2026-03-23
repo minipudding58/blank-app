@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 2. 스타일 시트 (버튼 수평 밀착 정렬 반영)
+# 🎨 2. 스타일 시트 (강제 수평 정렬 로직 추가)
 # ==========================================
 st.markdown(f"""
     <style>
@@ -36,18 +36,20 @@ st.markdown(f"""
         padding-top: 15px; font-family: 'Pretendard', sans-serif;
     }}
 
-    /* 버튼 수평 밀착 정렬 핵심 설정 */
-    [data-testid="column"] {{
-        display: flex;
+    /* 모든 버튼을 강제로 가로 나열 */
+    div[data-testid="stHorizontalBlock"] {{
+        display: flex !important;
         flex-direction: row !important;
+        flex-wrap: nowrap !important; /* 절대 다음 줄로 넘어가지 않음 */
         align-items: center !important;
-        gap: 8px !important; /* 버튼 사이의 좁은 간격 */
+        justify-content: flex-start !important;
+        gap: 10px !important;
     }}
-    
-    /* 버튼 행을 감싸는 컨테이너 여백 */
-    .stHorizontalBlock {{
-        gap: 8px !important;
-        margin-top: 5px !important;
+
+    div[data-testid="column"] {{
+        width: auto !important;
+        flex: 0 1 auto !important;
+        min-width: min-content !important;
     }}
 
     .wish-top-spacer {{ height: 74px !important; display: block; }}
@@ -59,14 +61,15 @@ st.markdown(f"""
         padding: 12px 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03); min-width: 90px;
     }}
 
-    /* 버튼 크기 최적화 */
+    /* 버튼 너비 고정 해제 및 밀착 */
     .stButton button {{
-        width: auto !important; 
-        min-width: 90px !important; 
+        width: 100% !important; 
+        min-width: 80px !important; 
         height: 40px !important;
         border-radius: 8px !important; 
         font-weight: 600 !important;
-        padding: 0 15px !important;
+        padding: 0 10px !important;
+        white-space: nowrap !important;
     }}
 
     [data-testid="stImage"] img {{ height: 220px !important; object-fit: contain !important; border-radius: 10px; border: 1px solid #F0F0F0; }}
@@ -117,7 +120,7 @@ def commit_changes():
 # 📊 4. 대시보드
 # ==========================================
 st.markdown(f"<div class='main-title'>{st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
-h_col1, h_col2 = st.columns([1, 4])
+h_col1, h_col2 = st.columns([1.2, 4])
 with h_col1:
     st.markdown(f"<span class='header-label'>{datetime.now().year}년 누적 독서</span>", unsafe_allow_html=True)
     st.markdown(f"<div class='total-count-display'>{len(st.session_state.collection)}<span style='font-size:24px; color:#333;'> 권</span></div>", unsafe_allow_html=True)
@@ -131,7 +134,7 @@ with h_col2:
 st.divider()
 
 # ==========================================
-# 🔍 5. 검색 결과 (버튼 수평 정렬)
+# 🔍 5. 검색 결과 (강제 수평 정렬)
 # ==========================================
 st.markdown("<span class='header-label'>🔍 새로운 도서 검색</span>", unsafe_allow_html=True)
 q_in = st.text_input("검색", placeholder="제목/저자 입력", label_visibility="collapsed")
@@ -150,14 +153,14 @@ if st.session_state.search_cache["items"]:
     for idx, item in enumerate(st.session_state.search_cache["items"]):
         with s_cols[idx]:
             st.image(item["url"], use_container_width=True)
-            # 버튼 수평 밀착 정렬
-            btn_col1, btn_col2 = st.columns([1, 1])
-            with btn_col1:
+            # 버튼 강제 밀착 정렬
+            inner_cols = st.columns([1, 1])
+            with inner_cols[0]:
                 if st.button("📖 읽음", key=f"s_add_lib_{idx}"):
                     img_raw = requests.get(item["url"], headers={"User-Agent":"Mozilla/5.0"}).content
                     st.session_state.collection.append({"img": Image.open(io.BytesIO(img_raw)).convert("RGB"), "url": item["url"], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item["genre"]})
                     commit_changes(); st.rerun()
-            with btn_col2:
+            with inner_cols[1]:
                 if st.button("🩵 위시", key=f"s_add_wish_{idx}"):
                     st.session_state.wishlist.append({"url": item["url"], "genre": item["genre"]})
                     commit_changes(); st.rerun()
@@ -165,7 +168,7 @@ if st.session_state.search_cache["items"]:
 st.divider()
 
 # ==========================================
-# 📚 6. 메인 탭 (저장/삭제 수평 밀착 정렬)
+# 📚 6. 메인 탭 (저장/삭제 강제 수평 정렬)
 # ==========================================
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
@@ -184,15 +187,15 @@ with tab_lib:
                     except: d_range = (date.today(), date.today())
                     new_d = st.date_input("날짜", d_range, key=f"ed_{i}", label_visibility="collapsed")
                     
-                    # 저장/삭제 수평 밀착 정렬 수정
-                    e_btn_col1, e_btn_col2 = st.columns([1, 1])
-                    with e_btn_col1:
+                    # 저장/삭제 강제 수평 밀착
+                    edit_btn_cols = st.columns([1, 1])
+                    with edit_btn_cols[0]:
                         if st.button("저장", key=f"esv_{i}"):
                             sd = new_d[0].isoformat() if isinstance(new_d, (list, tuple)) else new_d.isoformat()
                             ed = new_d[1].isoformat() if isinstance(new_d, (list, tuple)) and len(new_d) > 1 else sd
                             st.session_state.collection[i].update({"genre": new_g, "start": sd, "end": ed})
                             commit_changes(); st.rerun()
-                    with e_btn_col2:
+                    with edit_btn_cols[1]:
                         st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
                         if st.button("삭제", key=f"edl_{i}"):
                             st.session_state.collection.pop(i); commit_changes(); st.rerun()
@@ -226,13 +229,13 @@ with tab_wish:
                     w_resp = requests.get(item['url'], headers={"User-Agent":"Mozilla/5.0"}).content
                     w_img = Image.open(io.BytesIO(w_resp))
                     st.image(w_img, use_container_width=True)
-                    # 위시리스트 버튼 수평 밀착 정렬
-                    w_btn_col1, w_btn_col2 = st.columns([1, 1])
-                    with w_btn_col1:
+                    # 완료/삭제 강제 수평 밀착
+                    wish_btn_cols = st.columns([1, 1])
+                    with wish_btn_cols[0]:
                         if st.button("📖 완료", key=f"wdn_{i}"):
                             st.session_state.collection.append({"img": w_img.convert("RGB"), "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
                             st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
-                    with w_btn_col2:
+                    with wish_btn_cols[1]:
                         st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
                         if st.button("🗑️ 삭제", key=f"wdl_{i}"):
                             st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
