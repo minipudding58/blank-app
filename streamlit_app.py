@@ -94,7 +94,7 @@ st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write("")
 st.write("")
  
-# --- [상단] 누적 및 장르 현황 (박제 영역) ---
+# --- [상단] 누적 및 장르 현황 ---
 t_col1, t_col2 = st.columns([1, 4])
  
 with t_col1:
@@ -129,9 +129,7 @@ if q:
            with scols[i]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                # 장르 입력칸 (이미지 높이가 고정되어 열이 맞춰짐)
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
-                # 버튼 레이아웃
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
@@ -142,10 +140,10 @@ if q:
  
 st.divider()
  
-# --- [하단] 목록 섹션 ---
-l_col, r_col = st.columns(2)
-with l_col:
-   st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
+# --- [하단] 탭 섹션 (수정된 부분) ---
+tab1, tab2 = st.tabs(["✅ 내 서재", "🩵 위시리스트"])
+
+with tab1:
    if st.session_state.collection:
        p_idx = []
        del_m = st.toggle("삭제 모드")
@@ -178,9 +176,10 @@ with l_col:
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
            buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
            st.download_button(f"📥 {len(p_idx)}권 PDF 저장", buf.getvalue(), "books.pdf")
+   else:
+       st.write("아직 읽은 책이 없습니다.")
  
-with r_col:
-   st.markdown("<span class='section-title'>🩵 위시리스트</span>", unsafe_allow_html=True)
+with tab2:
    if st.session_state.wishlist:
        wcols = st.columns(3)
        for i, item in enumerate(st.session_state.wishlist):
@@ -195,3 +194,5 @@ with r_col:
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
                 if wb_cols[1].button("🗑️", key=f"w_d_{i}", use_container_width=True):
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
+   else:
+       st.write("위시리스트가 비어 있습니다.")
