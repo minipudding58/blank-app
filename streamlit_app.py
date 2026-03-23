@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 (테두리 색상 수정 및 공백 조정) ---
+# --- 🎨 스타일 레이아웃 ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
@@ -57,7 +57,17 @@ st.markdown(f"""
        font-size: 13px !important;
    }}
 
-   /* 위시리스트 상단 공백 (한 칸 줄임) */
+   .stat-container {{ text-align: center; }}
+   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; }}
+   .genre-card {{
+       background-color: #f8f9fa;
+       border: 1px solid #eee;
+       border-radius: 8px;
+       padding: 4px 10px;
+       text-align: center;
+   }}
+
+   /* 위시리스트 상단 공백 */
    .wish-top-spacer {{
        height: 42px !important; 
        display: block;
@@ -91,15 +101,25 @@ def save_all():
    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 상단 레이아웃 ---
+# --- 상단 레이아웃 (대시보드 복구) ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-st.write(""); st.write("") # 기존 상단 공백 유지
+st.write(""); st.write("")
+ 
+t_col1, t_col2 = st.columns([1, 4])
+with t_col1:
+   st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>""", unsafe_allow_html=True)
+ 
+with t_col2:
+   if st.session_state.collection:
+       counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
+       genre_items = "".join([f"<div class='genre-card'><div style='font-size:11px;color:#888;'>{g}</div><div style='font-size:14px;font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
+       st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
  
 st.divider()
  
 # --- 검색 섹션 ---
 st.markdown("### 🔍 새로운 도서 검색")
-q = st.text_input("제목/저자 입력", placeholder="검색어를 입력하세요...", label_visibility="collapsed")
+q = st.text_input("제목/저자 입력", placeholder="검색어를 입력하세요...", key="search_input", label_visibility="collapsed")
 if q:
    res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
    imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
@@ -169,7 +189,7 @@ with tab_lib:
        st.info("아직 서재가 비어있습니다.")
 
 with tab_wish:
-   st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True) # 공백 한 칸 줄임
+   st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True)
    if st.session_state.wishlist:
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
