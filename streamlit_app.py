@@ -19,17 +19,19 @@ st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="
 # --- 🎨 2. 스타일 통합 (모든 디자인 디테일 박제) ---
 st.markdown(f"""
     <style>
-    /* 전체 배경 및 여백 - 타이틀 잘림 방지를 위해 패딩 조정 */
-    .block-container {{ padding-top: 2rem !important; padding-bottom: 2rem !important; }}
+    /* 전체 배경 및 여백 - 타이틀 잘림 방지를 위해 최상단 패딩 대폭 추가 */
+    .block-container {{ padding-top: 5rem !important; padding-bottom: 2rem !important; }}
     
-    /* [상단] 메인 타이틀 - 텍스트가 잘리지 않도록 여백 확보 */
+    /* [상단] 메인 타이틀 - 텍스트가 잘리지 않도록 높이(height)와 여백 확실히 확보 */
     .main-title {{ 
         font-size: 36px; 
         font-weight: bold; 
         color: #31333F; 
-        margin-bottom: 40px; 
-        line-height: 1.4;
+        margin-bottom: 50px; 
+        line-height: 1.6;
         display: block;
+        height: auto;
+        min-height: 60px;
     }}
 
     /* [상단] 대시보드 레이아웃 */
@@ -291,3 +293,5 @@ with t_wish:
                     if st.button("🗑️ 삭제", key=f"wd_{i}", use_container_width=True):
                         st.session_state.wishlist.pop(i); save_data(); st.rerun()
                 except: continue
+    else:
+        st.info("위시리스트가 비어있습니다.")
