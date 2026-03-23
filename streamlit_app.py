@@ -8,15 +8,15 @@ import os
 from datetime import datetime, date
 from collections import Counter
  
-# --- 기본 설정 ---
+# --- 1. 기본 설정 (인쇄용 DPI 및 규격) ---
 DPI = 300
-TARGET_H_PX = int((40 / 25.4) * DPI) 
+TARGET_H_PX = int((40 / 25.4) * DPI)  # 책 높이 40mm 기준
 A4_W_PX = int((210 / 25.4) * DPI)
 A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 ---
+# --- 2. CSS 스타일링 (레이아웃 및 버튼 디자인) ---
 st.markdown(f"""
    <style>
    .block-container {{ 
@@ -46,12 +46,14 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
+   /* 입력창 포커스 시 테두리 제거 */
    input:focus, textarea:focus, select:focus, div[data-baseweb="input"] {{
        border-color: #eeeeee !important;
        box-shadow: none !important;
        outline: none !important;
    }}
 
+   /* 책 이미지 규격 고정 */
    [data-testid="stImage"] img {{
        height: 220px !important;
        object-fit: contain !important;
@@ -60,6 +62,7 @@ st.markdown(f"""
        margin-bottom: 8px;
    }}
  
+   /* 버튼 스타일 통일 */
    div.stButton > button {{
        width: 100% !important;
        height: 35px !important;
@@ -68,7 +71,7 @@ st.markdown(f"""
    </style>
    """, unsafe_allow_html=True)
 
-# --- 📂 데이터 및 세션 관리 ---
+# --- 3. 데이터 로드 및 세션 관리 ---
 if 'user_id' not in st.session_state:
    st.session_state.user_id = st.query_params.get("user", "치이카와")
  
@@ -97,16 +100,23 @@ if 'collection' not in st.session_state:
                     r = requests.get(itm["url"], timeout=5, headers={"User-Agent": "Mozilla/5.0"})
                     if r.status_code == 200:
                         st.session_state.collection.append({
-                            "img": Image.open(io.BytesIO(r.content)).convert("RGB"), "url": itm["url"],
-                            "start": itm.get("start"), "end": itm.get("end"), "genre": itm.get("genre", "미지정")
+                            "img": Image.open(io.BytesIO(r.content)).convert("RGB"), 
+                            "url": itm["url"],
+                            "start": itm.get("start"), 
+                            "end": itm.get("end"), 
+                            "genre": itm.get("genre", "미지정")
                         })
        except: pass
  
 def save_all():
-   data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
-   with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
+   data = {
+       "wishlist": st.session_state.wishlist, 
+       "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]
+   }
+   with open(USER_DATA_FILE, "w", encoding="utf-8") as f: 
+       json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 상단 타이틀 및 통계 ---
+# --- 4. 상단 타이틀 및 통계 섹션 ---
 st.markdown(f'<div class="main-title">📖 {st.session_state.user_id}의 독서 기록</div>', unsafe_allow_html=True)
  
 t_col1, t_col2 = st.columns([1, 4])
@@ -120,7 +130,7 @@ with t_col2:
  
 st.divider()
  
-# --- 도서 검색 ---
+# --- 5. 도서 검색 기능 ---
 st.markdown("### 🔍 새로운 도서 검색")
 q = st.text_input("제목/저자 입력", key="search_input", label_visibility="collapsed")
 if q:
@@ -136,21 +146,31 @@ if q:
                 bc1, bc2 = st.columns(2)
                 if bc1.button("📖 읽음", key=f"r_{i}"):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                    st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": g_val})
+                    st.session_state.collection.append({
+                        "img": Image.open(io.BytesIO(img_data)).convert("RGB"), 
+                        "url": url, 
+                        "start": date.today().isoformat(), 
+                        "end": date.today().isoformat(), 
+                        "genre": g_val
+                    })
                     save_all(); st.rerun()
                 if bc2.button("🩵 위시", key=f"w_{i}"):
                     st.session_state.wishlist.append({"url": url, "genre": g_val}); save_all(); st.rerun()
  
 st.divider()
  
-# --- 📑 탭 영역 ---
+# --- 6. 📑 메인 탭 영역 ---
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
-# 1. 내 서재 탭
+# --- [내 서재 탭] ---
 with tab_lib:
-   if st.session_state.collection:
+   # 상단 조작부 (편집 모드 토글 + PDF 인쇄 버튼)
+   l_top_c1, l_top_c2 = st.columns([1, 1])
+   with l_top_c1:
        edit_mode = st.toggle("🔧 편집 모드 활성화")
-       p_idx = []
+   
+   p_idx = []
+   if st.session_state.collection:
        rows = (len(st.session_state.collection) + 3) // 4
        for r in range(rows):
            dcols = st.columns(4)
@@ -177,27 +197,28 @@ with tab_lib:
                        else:
                            st.caption(f"장르: {itm.get('genre', '미지정')}")
                            st.text(f"📅 {itm.get('start', '미정')} ~ {itm.get('end', '미정')}")
- 
-       if edit_mode and p_idx:
-           buf = io.BytesIO()
-           sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
-           x, y = 100, 100
-           for i in p_idx:
-                img = st.session_state.collection[i]["img"]
-                ratio = TARGET_H_PX / float(img.size[1])
-                img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
-                if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX + 40
-                sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
-           sheet.save(buf, format="PDF", resolution=300.0)
-           st.download_button(f"📥 선택 PDF 인쇄", buf.getvalue(), "my_books.pdf", use_container_width=True)
-
-# 2. 위시리스트 탭 (🚨 요청 사항 반영: 버튼 제거 및 열 맞춤)
-with tab_wish:
-   if st.session_state.wishlist:
-       # 불필요한 '위시 편집 모드' 토글 제거
-       # 상단 여백을 주어 '내 서재'의 책 시작 열과 수직 위치 동기화
-       st.markdown("<div style='margin-top: 55px;'></div>", unsafe_allow_html=True) 
        
+       # PDF 생성 로직 (편집 모드 시 상단에 버튼 노출)
+       if edit_mode and p_idx:
+           with l_top_c2:
+               buf = io.BytesIO()
+               sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
+               x, y = 100, 100
+               for i in p_idx:
+                    img = st.session_state.collection[i]["img"]
+                    ratio = TARGET_H_PX / float(img.size[1])
+                    img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
+                    if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX + 40
+                    sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
+               sheet.save(buf, format="PDF", resolution=300.0)
+               st.download_button(f"📥 선택 PDF 인쇄", buf.getvalue(), "my_books.pdf", use_container_width=True)
+
+# --- [위시리스트 탭] ---
+with tab_wish:
+   # 🚨 '내 서재'의 상단 토글 영역만큼 고정 여백을 주어 책의 시작 높이를 일치시킴
+   st.markdown("<div style='height: 56px;'></div>", unsafe_allow_html=True)
+   
+   if st.session_state.wishlist:
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
            wcols = st.columns(4)
@@ -212,7 +233,13 @@ with tab_wish:
                         st.caption(f"장르: {item.get('genre', '미지정')}")
                         wb_cols = st.columns(2)
                         if wb_cols[0].button("📖 읽음", key=f"wr_{idx}"): 
-                            st.session_state.collection.append({"img": img_obj, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
+                            st.session_state.collection.append({
+                                "img": img_obj, 
+                                "url": item['url'], 
+                                "start": date.today().isoformat(), 
+                                "end": date.today().isoformat(), 
+                                "genre": item.get('genre', '미지정')
+                            })
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
                         if wb_cols[1].button("🗑️ 삭제", key=f"w_d_{idx}"):
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
