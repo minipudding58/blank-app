@@ -12,9 +12,9 @@ from collections import Counter
 # ⚙️ 1. 전역 설정 및 상수 (A4 출력 최적화)
 # ==========================================
 DPI = 300
-TARGET_H_PX = int((40 / 25.4) * DPI)  
-A4_W_PX = int((210 / 25.4) * DPI)     
-A4_H_PX = int((297 / 25.4) * DPI)     
+TARGET_H_PX = int((40 / 25.4) * DPI)  # 책 표지 높이 약 40mm 기준
+A4_W_PX = int((210 / 25.4) * DPI)     # A4 너비 (픽셀)
+A4_H_PX = int((297 / 25.4) * DPI)     # A4 높이 (픽셀)
 
 st.set_page_config(
     page_title="나의 독서 기록장",
@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 2. 스타일 시트 (타이틀 하단 공백 및 디자인 유지)
+# 🎨 2. 스타일 시트 (제목 답답함 해소 및 디자인 복구)
 # ==========================================
 st.markdown(f"""
     <style>
@@ -34,23 +34,26 @@ st.markdown(f"""
         max-width: 1200px;
     }}
     
-    /* [수정] 메인 타이틀과 대시보드 사이의 공백 확보 */
+    /* [수정] 제목 잘림 방지 및 답답함 해소 (자간/행간 최적화) */
     .main-title {{ 
-        font-size: 42px; 
-        font-weight: 850; 
+        font-size: 44px; 
+        font-weight: 800; 
         color: #1E1E1E; 
-        margin-bottom: 45px !important; /* 이 값을 키워 공백을 넣었습니다 */
-        letter-spacing: -1.5px;
-        line-height: 1.1;
+        margin-bottom: 55px !important; 
+        letter-spacing: -0.5px !important; 
+        line-height: 1.6 !important; 
+        padding-top: 15px;
+        padding-bottom: 5px;
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
     }}
     
-    /* 위시리스트 상단 여백 고정 */
+    /* 위시리스트 상단 여백 고정 (내 서재 탭과 수평 맞춤) */
     .wish-top-spacer {{
         height: 74px !important; 
         display: block;
     }}
 
-    /* 상단 대시보드 레이아웃 유지 */
+    /* 상단 대시보드 레이아웃 (가로 배치 복구) */
     .top-header-wrapper {{
         display: flex;
         justify-content: flex-start;
@@ -89,6 +92,7 @@ st.markdown(f"""
         font-weight: 700 !important;
     }}
 
+    /* 이미지 규격 및 버튼 스타일 */
     [data-testid="stImage"] img {{ 
         height: 220px !important; 
         object-fit: contain !important; 
@@ -120,13 +124,12 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 🗝️ 3. 데이터 및 세션 관리 (풀 버전 로직)
+# 🗝️ 3. 데이터 및 세션 관리 로직
 # ==========================================
 if 'user_id' not in st.session_state:
     try:
-        params = st.query_params
-        if "user" in params:
-            st.session_state.user_id = params["user"]
+        if "user" in st.query_params:
+            st.session_state.user_id = st.query_params["user"]
         else:
             st.markdown("<div class='main-title'>📖 독서 기록장 입장</div>", unsafe_allow_html=True)
             u_input = st.text_input("닉네임을 입력하세요", placeholder="예: 먼작귀", label_visibility="collapsed")
@@ -140,10 +143,8 @@ if 'user_id' not in st.session_state:
 USER_DATA_PATH = f"data_{st.session_state.user_id}.json"
 
 if 'collection' not in st.session_state:
-    st.session_state.collection = []
-    st.session_state.wishlist = []
-    if 'search_cache' not in st.session_state:
-        st.session_state.search_cache = {"query": "", "items": []}
+    st.session_state.collection = []; st.session_state.wishlist = []
+    if 'search_cache' not in st.session_state: st.session_state.search_cache = {"query": "", "items": []}
 
     if os.path.exists(USER_DATA_PATH):
         try:
@@ -165,25 +166,18 @@ if 'collection' not in st.session_state:
         except: pass
 
 def commit_changes():
-    try:
-        payload = {
-            "wishlist": st.session_state.wishlist, 
-            "collection": [
-                {"url": i["url"], "start": i["start"], "end": i["end"], "genre": i["genre"]} 
-                for i in st.session_state.collection
-            ]
-        }
-        with open(USER_DATA_PATH, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=4)
-    except Exception as e:
-        st.error(f"저장 오류: {e}")
+    payload = {
+        "wishlist": st.session_state.wishlist, 
+        "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i["genre"]} for i in st.session_state.collection]
+    }
+    with open(USER_DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=4)
 
 # ==========================================
-# 📊 4. 상단 대시보드 (공백 추가 적용)
+# 📊 4. 상단 대시보드
 # ==========================================
 st.markdown(f"<div class='main-title'>{st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
 
-# 타이틀 아래 공백 확보된 레이아웃
 h_col1, h_col2 = st.columns([1, 4])
 with h_col1:
     st.markdown(f"<span class='header-label'>{datetime.now().year}년 누적 독서</span>", unsafe_allow_html=True)
@@ -195,8 +189,7 @@ with h_col2:
         stats = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
         stat_html = "".join([f"<div class='genre-card-item'>{g}<br><b>{c}권</b></div>" for g, c in stats.items()])
         st.markdown(f"<div style='display:flex; gap:14px; flex-wrap:wrap;'>{stat_html}</div>", unsafe_allow_html=True)
-    else:
-        st.caption("아직 데이터가 없습니다.")
+    else: st.caption("아직 데이터가 없습니다.")
 
 st.divider()
 
@@ -211,13 +204,7 @@ if q_in and q_in != st.session_state.search_cache["query"]:
         res_text = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q_in}", headers={"User-Agent":"Mozilla/5.0"}).text
         found_imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/[^"\'\s>]+cover[^"\'\s>]+', res_text)))
         found_genres = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res_text)
-        
-        st.session_state.search_cache["items"] = []
-        for i in range(min(4, len(found_imgs))):
-            st.session_state.search_cache["items"].append({
-                "url": found_imgs[i],
-                "genre": found_genres[i] if i < len(found_genres) else "미지정"
-            })
+        st.session_state.search_cache["items"] = [{"url": found_imgs[i], "genre": found_genres[i] if i < len(found_genres) else "미지정"} for i in range(min(4, len(found_imgs)))]
         st.session_state.search_cache["query"] = q_in
     except: st.error("검색 중 오류 발생")
 
@@ -229,10 +216,7 @@ if st.session_state.search_cache["items"]:
             btn_grp = st.columns(2)
             if btn_grp[0].button("📖 읽음", key=f"s_add_lib_{idx}"):
                 img_raw = requests.get(item["url"], headers={"User-Agent":"Mozilla/5.0"}).content
-                st.session_state.collection.append({
-                    "img": Image.open(io.BytesIO(img_raw)).convert("RGB"), 
-                    "url": item["url"], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item["genre"]
-                })
+                st.session_state.collection.append({"img": Image.open(io.BytesIO(img_raw)).convert("RGB"), "url": item["url"], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item["genre"]})
                 commit_changes(); st.rerun()
             if btn_grp[1].button("🩵 위시", key=f"s_add_wish_{idx}"):
                 st.session_state.wishlist.append({"url": item["url"], "genre": item["genre"]})
@@ -248,20 +232,17 @@ tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 with tab_lib:
     is_edit = st.toggle("편집 및 PDF 모드 활성화", key="edit_toggle_full")
     selected_for_pdf = []
-    
     if st.session_state.collection:
         lib_cols = st.columns(4)
         for i, item in enumerate(st.session_state.collection):
             with lib_cols[i % 4]:
                 st.image(item["img"], use_container_width=True)
                 if is_edit:
-                    if st.checkbox("선택", key=f"chk_{i}", value=True):
-                        selected_for_pdf.append(i)
+                    if st.checkbox("선택", key=f"chk_{i}", value=True): selected_for_pdf.append(i)
                     new_g = st.text_input("장르", value=item['genre'], key=f"eg_{i}", label_visibility="collapsed")
                     try: d_range = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
                     except: d_range = (date.today(), date.today())
                     new_d = st.date_input("날짜", d_range, key=f"ed_{i}", label_visibility="collapsed")
-                    
                     eb_cols = st.columns(2)
                     with eb_cols[0]:
                         if st.button("저장", key=f"esv_{i}"):
@@ -285,11 +266,9 @@ with tab_lib:
                     canv = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
                     cx, cy = 160, 160
                     for idx in selected_for_pdf:
-                        im = st.session_state.collection[idx]["img"]
-                        ratio = TARGET_H_PX / float(im.size[1])
+                        im = st.session_state.collection[idx]["img"]; ratio = TARGET_H_PX / float(im.size[1])
                         resized = im.resize((int(im.size[0]*ratio), TARGET_H_PX), Image.LANCZOS)
-                        if cx + resized.size[0] > A4_W_PX - 160:
-                            cx = 160; cy += TARGET_H_PX + 70
+                        if cx + resized.size[0] > A4_W_PX - 160: cx = 160; cy += TARGET_H_PX + 70
                         canv.paste(resized, (cx, cy)); cx += resized.size[0] + 70
                     pdf_io = io.BytesIO()
                     canv.save(pdf_io, format="PDF", resolution=300.0)
@@ -309,12 +288,8 @@ with tab_wish:
                     wb_cols = st.columns(2)
                     with wb_cols[0]:
                         if st.button("📖 읽기 완료!", key=f"wdn_{i}"):
-                            st.session_state.collection.append({
-                                "img": w_img.convert("RGB"), "url": item['url'], 
-                                "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')
-                            })
-                            st.session_state.wishlist.pop(i)
-                            commit_changes(); st.rerun()
+                            st.session_state.collection.append({"img": w_img.convert("RGB"), "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
+                            st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
                     with wb_cols[1]:
                         st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
                         if st.button("🗑️ 삭제", key=f"wdl_{i}"):
