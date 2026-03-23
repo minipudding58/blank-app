@@ -16,16 +16,14 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 (상단 잘림 방지 집중 수정) ---
+# --- 🎨 스타일 레이아웃 ---
 st.markdown(f"""
    <style>
-   /* 🚨 상단 여백을 대폭 늘려 제목 잘림 방지 */
    .block-container {{ 
        padding-top: 5rem !important; 
        max-width: 1200px;
    }}
    
-   /* 🚨 제목 스타일: 상단 마진 추가로 여유 공간 확보 */
    .main-title {{
        font-size: 42px !important;
        font-weight: 800 !important;
@@ -48,7 +46,6 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   /* 입력창 포커스 시 테두리 고정 (빨간색 방지) */
    input:focus, textarea:focus, select:focus, div[data-baseweb="input"] {{
        border-color: #eeeeee !important;
        box-shadow: none !important;
@@ -67,11 +64,6 @@ st.markdown(f"""
        width: 100% !important;
        height: 35px !important;
        font-size: 13px !important;
-   }}
-
-   .stToggle {{
-       margin-top: 5px !important;
-       margin-bottom: 10px !important;
    }}
    </style>
    """, unsafe_allow_html=True)
@@ -114,7 +106,7 @@ def save_all():
    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 🚨 커스텀 제목 (잘림 복구 완료) ---
+# --- 상단 타이틀 및 통계 ---
 st.markdown(f'<div class="main-title">📖 {st.session_state.user_id}의 독서 기록</div>', unsafe_allow_html=True)
  
 t_col1, t_col2 = st.columns([1, 4])
@@ -141,8 +133,6 @@ if q:
            with scols[i % 4]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                
-                # '읽음' '위시' 버튼 수평 배치
                 bc1, bc2 = st.columns(2)
                 if bc1.button("📖 읽음", key=f"r_{i}"):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
@@ -156,6 +146,7 @@ st.divider()
 # --- 📑 탭 영역 ---
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
+# 1. 내 서재 탭
 with tab_lib:
    if st.session_state.collection:
        edit_mode = st.toggle("🔧 편집 모드 활성화")
@@ -170,14 +161,11 @@ with tab_lib:
                    with dcols[c]:
                        st.image(itm["img"], use_container_width=True)
                        if edit_mode:
-                           # 🚨 선택 체크박스가 상단 위치
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
                            new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
-                           
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                            except: val = [date.today(), date.today()]
                            new_dr = st.date_input("날짜", val, key=f"ed_{idx}", label_visibility="collapsed")
-                           
                            eb_cols = st.columns(2)
                            if eb_cols[0].button("저장", key=f"sv_{idx}"):
                                if len(new_dr) == 2:
@@ -203,11 +191,12 @@ with tab_lib:
            sheet.save(buf, format="PDF", resolution=300.0)
            st.download_button(f"📥 선택 PDF 인쇄", buf.getvalue(), "my_books.pdf", use_container_width=True)
 
+# 2. 위시리스트 탭 (🚨 요청 사항 반영: 버튼 제거 및 열 맞춤)
 with tab_wish:
    if st.session_state.wishlist:
-       wish_edit = st.toggle("🔧 위시 편집 모드")
-       # 위시리스트 공백 유지
-       st.markdown("<br>", unsafe_allow_html=True) 
+       # 불필요한 '위시 편집 모드' 토글 제거
+       # 상단 여백을 주어 '내 서재'의 책 시작 열과 수직 위치 동기화
+       st.markdown("<div style='margin-top: 55px;'></div>", unsafe_allow_html=True) 
        
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
