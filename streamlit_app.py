@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 통합 (토글/체크박스 색상 복구) ---
+# --- 🎨 2. 스타일 통합 (토글/체크박스 색상 복구 및 텍스트 배경 제거) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 3rem !important; padding-bottom: 2rem !important; }}
@@ -90,13 +90,12 @@ st.markdown(f"""
     }}
     .date-text {{ font-size: 14px; color: #888; display: block; margin-top: 8px; }}
 
-    /* --- [교정] 텍스트 하이라이트(배경색)만 완전 제거 --- */
+    /* 텍스트 하이라이트(배경색) 완전 제거 */
     .stMarkdown div, .stMarkdown p, .stMarkdown span, div[data-testid="stCheckbox"] label div {{
         background-color: transparent !important;
         background: none !important;
     }}
     
-    /* 버튼 정밀 수평 정렬 */
     .stButton button {{
         height: 38px !important;
         display: flex !important;
@@ -105,9 +104,7 @@ st.markdown(f"""
         border-radius: 8px !important;
     }}
 
-    /* 수정 버튼 텍스트 색상 (하늘색) */
     .edit-btn-blue button p {{ color: #87CEEB !important; font-weight: bold !important; }}
-    /* 삭제 버튼 텍스트 색상 (빨간색) */
     .del-btn-red button p {{ color: #ff6b6b !important; font-weight: bold !important; }}
 
     input, div[data-baseweb="input"], .stTextInput div {{ 
@@ -133,8 +130,14 @@ if 'user_id' not in st.session_state:
 
 USER_FILE = f"data_{st.session_state.user_id}.json"
 
+# 세션 초기화 및 데이터 로드
 if 'collection' not in st.session_state:
-    st.session_state.collection = []; st.session_state.wishlist = []
+    st.session_state.collection = []
+    st.session_state.wishlist = []
+    # [추가] 검색 결과 박제용 세션
+    if 'search_cache' not in st.session_state:
+        st.session_state.search_cache = {"query": "", "imgs": [], "genres": []}
+
     if os.path.exists(USER_FILE):
         try:
             with open(USER_FILE, "r", encoding="utf-8") as f:
@@ -168,8 +171,8 @@ def save_data():
     except Exception as e:
         st.error(f"저장 중 오류: {e}")
 
-# --- 📊 4. 상단 대시보드 ---
-st.markdown(f"<div class='main-title'>📖 {st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
+# --- 📊 4. 상단 대시보드 (원본 로직) ---
+st.markdown(f<div class='main-title'>📖 {st.session_state.user_id}의 독서기록</div>, unsafe_allow_html=True)
 
 st.markdown('<div class="top-header-wrapper">', unsafe_allow_html=True)
 h_col1, h_col2 = st.columns([1, 4])
@@ -193,46 +196,53 @@ with h_col2:
 st.markdown('</div>', unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 책 검색 ---
+# --- 🔍 5. 책 검색 (버그 수정: 세션 캐시 적용) ---
 st.markdown("<span class='header-label'>🔍 책 검색</span>", unsafe_allow_html=True)
 search_q = st.text_input("검색어 입력", placeholder="제목 또는 저자를 입력하세요...", label_visibility="collapsed")
 
-if search_q:
+# 새로운 검색어가 입력되면 크롤링 수행
+if search_q and search_q != st.session_state.search_cache["query"]:
     try:
         res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={search_q}", headers={"User-Agent": "Mozilla/5.0"}).text
         imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/[^"\'\s>]+cover[^"\'\s>]+', res)))
         genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
-        if imgs:
-            s_cols = st.columns(4)
-            for i, url in enumerate(imgs[:4]):
-                with s_cols[i]:
-                    st.image(url, use_container_width=True)
-                    g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                    sel_genre = st.text_input("장르", value=g_val, key=f"sq_{i}", label_visibility="collapsed")
-                    b_cols = st.columns(2)
-                    if b_cols[0].button("📖 읽음", key=f"rb_{i}", use_container_width=True):
-                        raw_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                        st.session_state.collection.append({
-                            "img": Image.open(io.BytesIO(raw_img)).convert("RGB"), 
-                            "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre
-                        })
-                        save_data(); st.rerun()
-                    if b_cols[1].button("🩵 위시", key=f"wb_{i}", use_container_width=True):
-                        st.session_state.wishlist.append({"url": url, "genre": sel_genre})
-                        save_data(); st.rerun()
-        else:
-            st.warning("결과를 찾을 수 없습니다.")
+        # 검색 결과 캐시에 저장
+        st.session_state.search_cache = {
+            "query": search_q,
+            "imgs": imgs[:4],
+            "genres": genre_raw[:4]
+        }
     except:
         st.error("검색 중 오류가 발생했습니다.")
 
+# 캐시된 검색 결과 표시
+if st.session_state.search_cache["imgs"]:
+    cache = st.session_state.search_cache
+    s_cols = st.columns(4)
+    for i, url in enumerate(cache["imgs"]):
+        with s_cols[i]:
+            st.image(url, use_container_width=True)
+            g_val = cache["genres"][i] if i < len(cache["genres"]) else "미지정"
+            sel_genre = st.text_input("장르", value=g_val, key=f"sq_{i}", label_visibility="collapsed")
+            b_cols = st.columns(2)
+            if b_cols[0].button("📖 읽음", key=f"rb_{i}", use_container_width=True):
+                raw_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
+                st.session_state.collection.append({
+                    "img": Image.open(io.BytesIO(raw_img)).convert("RGB"), 
+                    "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre
+                })
+                save_data(); st.rerun()
+            if b_cols[1].button("🩵 위시", key=f"wb_{i}", use_container_width=True):
+                st.session_state.wishlist.append({"url": url, "genre": sel_genre})
+                save_data(); st.rerun()
+
 st.divider()
 
-# --- 📚 6. 메인 목록 ---
+# --- 📚 6. 메인 목록 (편집/삭제/PDF 생성 원본 그대로) ---
 t_lib, t_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with t_lib:
     if st.session_state.collection:
-        # 이 부분 토글 색상이 다시 주황색/빨간색으로 나옵니다
         is_edit = st.toggle("편집 및 PDF 모드 활성화")
         sel_idx = []
         l_cols = st.columns(4)
