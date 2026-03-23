@@ -12,9 +12,9 @@ from collections import Counter
 # ⚙️ 1. 전역 설정 및 상수 (A4 출력 최적화)
 # ==========================================
 DPI = 300
-TARGET_H_PX = int((40 / 25.4) * DPI)  # 책 표지 높이 약 40mm 기준
-A4_W_PX = int((210 / 25.4) * DPI)     # A4 너비 (픽셀)
-A4_H_PX = int((297 / 25.4) * DPI)     # A4 높이 (픽셀)
+TARGET_H_PX = int((40 / 25.4) * DPI)  
+A4_W_PX = int((210 / 25.4) * DPI)     
+A4_H_PX = int((297 / 25.4) * DPI)     
 
 st.set_page_config(
     page_title="나의 독서 기록장",
@@ -24,53 +24,51 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 2. 스타일 시트 (상단 디자인 복구 및 정렬)
+# 🎨 2. 스타일 시트 (타이틀 하단 공백 및 디자인 유지)
 # ==========================================
 st.markdown(f"""
     <style>
-    /* 전체 레이아웃 패딩 */
     .block-container {{ 
-        padding-top: 2rem !important; 
+        padding-top: 2.5rem !important; 
         padding-bottom: 2rem !important; 
         max-width: 1200px;
     }}
     
-    /* [핵심] 위시리스트 탭 상단 여백 고정 (내 서재 탭의 토글 버튼 위치와 대응) */
+    /* [수정] 메인 타이틀과 대시보드 사이의 공백 확보 */
+    .main-title {{ 
+        font-size: 42px; 
+        font-weight: 850; 
+        color: #1E1E1E; 
+        margin-bottom: 45px !important; /* 이 값을 키워 공백을 넣었습니다 */
+        letter-spacing: -1.5px;
+        line-height: 1.1;
+    }}
+    
+    /* 위시리스트 상단 여백 고정 */
     .wish-top-spacer {{
         height: 74px !important; 
         display: block;
-        width: 100%;
     }}
 
-    /* 메인 타이틀 스타일 */
-    .main-title {{ 
-        font-size: 38px; 
-        font-weight: 800; 
-        color: #1E1E1E; 
-        margin-bottom: 5px !important;
-        letter-spacing: -1px;
-    }}
-    
-    /* [상단 디자인 복구] 누적 독서량 & 장르 통계 가로 배치 */
+    /* 상단 대시보드 레이아웃 유지 */
     .top-header-wrapper {{
         display: flex;
         justify-content: flex-start;
         align-items: center;
         gap: 80px;
-        margin-bottom: 30px;
-        padding: 20px 0;
+        margin-bottom: 35px;
     }}
     
     .header-label {{ 
         font-size: 16px !important; 
         font-weight: 600 !important; 
         color: #666 !important;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
         display: block;
     }}
     
     .total-count-display {{
-        font-size: 52px;
+        font-size: 56px;
         font-weight: 900;
         color: #87CEEB;
         line-height: 1;
@@ -80,19 +78,17 @@ st.markdown(f"""
         background-color: #FFFFFF; 
         border: 1px solid #EAEAEA; 
         border-radius: 14px; 
-        padding: 12px 18px; 
+        padding: 12px 20px; 
         text-align: center;
         box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        min-width: 85px;
+        min-width: 90px;
     }}
 
-    /* 탭 및 버튼 스타일 */
     .stTabs [data-baseweb="tab"] p {{
         font-size: 19px !important;
         font-weight: 700 !important;
     }}
 
-    /* 이미지 규격 및 버튼 수평 정렬 */
     [data-testid="stImage"] img {{ 
         height: 220px !important; 
         object-fit: contain !important; 
@@ -107,23 +103,14 @@ st.markdown(f"""
         font-weight: 600 !important;
     }}
     
-    /* 삭제 버튼 전용 스타일 */
     .del-btn-red button {{
         background-color: transparent !important;
         border: 1px solid #FF6B6B !important;
     }}
-    .del-btn-red button p {{
-        color: #FF6B6B !important;
-    }}
+    .del-btn-red button p {{ color: #FF6B6B !important; }}
 
-    .date-text {{ 
-        font-size: 13px; 
-        color: #999; 
-        display: block; 
-        margin-top: 8px;
-    }}
+    .date-text {{ font-size: 13px; color: #999; display: block; margin-top: 8px; }}
     
-    /* 입력창 배경색 제거 */
     div[data-baseweb="input"] {{ 
         background-color: #F7F7F7 !important;
         border-radius: 10px !important;
@@ -133,7 +120,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 🗝️ 3. 데이터 및 세션 관리 로직
+# 🗝️ 3. 데이터 및 세션 관리 (풀 버전 로직)
 # ==========================================
 if 'user_id' not in st.session_state:
     try:
@@ -178,7 +165,6 @@ if 'collection' not in st.session_state:
         except: pass
 
 def commit_changes():
-    """데이터 영구 저장"""
     try:
         payload = {
             "wishlist": st.session_state.wishlist, 
@@ -193,11 +179,11 @@ def commit_changes():
         st.error(f"저장 오류: {e}")
 
 # ==========================================
-# 📊 4. 상단 대시보드 (디자인 원상 복구)
+# 📊 4. 상단 대시보드 (공백 추가 적용)
 # ==========================================
 st.markdown(f"<div class='main-title'>{st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
 
-# 가로 배치 대시보드
+# 타이틀 아래 공백 확보된 레이아웃
 h_col1, h_col2 = st.columns([1, 4])
 with h_col1:
     st.markdown(f"<span class='header-label'>{datetime.now().year}년 누적 독서</span>", unsafe_allow_html=True)
@@ -215,7 +201,7 @@ with h_col2:
 st.divider()
 
 # ==========================================
-# 🔍 5. 도서 검색 및 추가 섹션
+# 🔍 5. 도서 검색 섹션
 # ==========================================
 st.markdown("<span class='header-label'>🔍 새로운 도서 검색</span>", unsafe_allow_html=True)
 q_in = st.text_input("검색어", placeholder="제목 또는 저자를 입력하세요", label_visibility="collapsed")
@@ -260,7 +246,6 @@ st.divider()
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
-    # 내 서재 상단 토글
     is_edit = st.toggle("편집 및 PDF 모드 활성화", key="edit_toggle_full")
     selected_for_pdf = []
     
@@ -272,13 +257,9 @@ with tab_lib:
                 if is_edit:
                     if st.checkbox("선택", key=f"chk_{i}", value=True):
                         selected_for_pdf.append(i)
-                    
-                    # 정보 수정 로직
                     new_g = st.text_input("장르", value=item['genre'], key=f"eg_{i}", label_visibility="collapsed")
-                    try:
-                        d_range = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
-                    except:
-                        d_range = (date.today(), date.today())
+                    try: d_range = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
+                    except: d_range = (date.today(), date.today())
                     new_d = st.date_input("날짜", d_range, key=f"ed_{i}", label_visibility="collapsed")
                     
                     eb_cols = st.columns(2)
@@ -297,7 +278,6 @@ with tab_lib:
                     st.markdown(f"**{item['genre']}**")
                     st.markdown(f'<span class="date-text">{item["start"]} ~ {item["end"]}</span>', unsafe_allow_html=True)
 
-        # PDF 생성 기능 (상세 로직 유지)
         if is_edit and selected_for_pdf:
             st.divider()
             if st.button(f"📥 선택한 {len(selected_for_pdf)}권 PDF 생성", use_container_width=True):
@@ -311,17 +291,13 @@ with tab_lib:
                         if cx + resized.size[0] > A4_W_PX - 160:
                             cx = 160; cy += TARGET_H_PX + 70
                         canv.paste(resized, (cx, cy)); cx += resized.size[0] + 70
-                    
                     pdf_io = io.BytesIO()
                     canv.save(pdf_io, format="PDF", resolution=300.0)
                     st.download_button("📂 PDF 다운로드", pdf_io.getvalue(), "my_shelf.pdf", use_container_width=True)
-    else:
-        st.info("기록된 도서가 없습니다.")
+    else: st.info("기록된 도서가 없습니다.")
 
 with tab_wish:
-    # 위시리스트 상단 공백 추가 (서재 탭과 수평 일치)
     st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True)
-    
     if st.session_state.wishlist:
         wish_cols = st.columns(4)
         for i, item in enumerate(st.session_state.wishlist):
@@ -330,27 +306,19 @@ with tab_wish:
                     w_resp = requests.get(item['url'], headers={"User-Agent":"Mozilla/5.0"}).content
                     w_img = Image.open(io.BytesIO(w_resp))
                     st.image(w_img, use_container_width=True)
-                    
-                    # 버튼 수평 정렬
                     wb_cols = st.columns(2)
                     with wb_cols[0]:
-                        # 읽기 완료 시 즉시 서재 이동
                         if st.button("📖 읽기 완료!", key=f"wdn_{i}"):
                             st.session_state.collection.append({
                                 "img": w_img.convert("RGB"), "url": item['url'], 
                                 "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')
                             })
-                            st.session_state.wishlist.pop(i) # 위시에서 즉시 제거
-                            commit_changes()
-                            st.rerun() # UI 즉시 갱신
+                            st.session_state.wishlist.pop(i)
+                            commit_changes(); st.rerun()
                     with wb_cols[1]:
                         st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
-                        # 삭제하기 -> 삭제 변경
                         if st.button("🗑️ 삭제", key=f"wdl_{i}"):
-                            st.session_state.wishlist.pop(i)
-                            commit_changes()
-                            st.rerun()
+                            st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
                 except: continue
-    else:
-        st.info("위시리스트가 비어있습니다.")
+    else: st.info("위시리스트가 비어있습니다.")
