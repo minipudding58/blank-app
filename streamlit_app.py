@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 (빨간 테두리 제거 및 공백 제어) ---
+# --- 🎨 스타일 레이아웃 ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
@@ -32,7 +32,7 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   /* 🚨 모든 입력창에서 빨간 테두리 박멸 */
+   /* 🚨 빨간 테두리 제거 */
    input:focus, textarea:focus, select:focus, div[data-baseweb="input"] {{
        border-color: #eeeeee !important;
        box-shadow: none !important;
@@ -58,6 +58,12 @@ st.markdown(f"""
        font-size: 13px !important;
    }}
 
+   /* 편집 버튼 위 공백 최소화 */
+   .tab-spacer {{
+       height: 5px !important; 
+       display: block;
+   }}
+
    .stat-container {{ text-align: center; }}
    .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }}
    .genre-card {{
@@ -67,40 +73,27 @@ st.markdown(f"""
        padding: 4px 10px;
        text-align: center;
    }}
-
-   /* 🚨 탭 하단 공백 클래스 */
-   .tab-spacer {{
-       height: 30px !important;
-       display: block;
-   }}
    </style>
    """, unsafe_allow_html=True)
 
-# --- 세션 관리 ---
+# --- 세션 및 데이터 로직 ---
 if 'user_id' not in st.session_state:
    st.session_state.user_id = st.query_params.get("user", "치이카와")
  
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 사이드바 (필요 기능만 남김) ---
 with st.sidebar:
     st.markdown(f"### 👤 현재 사용자: **{st.session_state.user_id}**")
     st.divider()
-    
     if st.button("🚪 로그아웃", use_container_width=True):
         st.query_params.clear()
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
-        
     if st.button("🗑️ 데이터 전체 삭제", use_container_width=True):
-        if os.path.exists(USER_DATA_FILE):
-            os.remove(USER_DATA_FILE)
-            st.session_state.collection = []
-            st.session_state.wishlist = []
-            st.rerun()
+        if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
+        st.session_state.collection = []; st.session_state.wishlist = []
+        st.rerun()
 
-# --- 데이터 로드 ---
 if 'collection' not in st.session_state:
    st.session_state.collection = []; st.session_state.wishlist = []
    if os.path.exists(USER_DATA_FILE):
@@ -121,14 +114,12 @@ def save_all():
    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 메인 헤더 및 통계 ---
+# --- 메인 UI ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
-st.write(""); st.write("")
  
 t_col1, t_col2 = st.columns([1, 4])
 with t_col1:
    st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">{len(st.session_state.collection)}권</div></div>""", unsafe_allow_html=True)
- 
 with t_col2:
    if st.session_state.collection:
        counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
@@ -137,9 +128,8 @@ with t_col2:
  
 st.divider()
  
-# --- 도서 검색 ---
 st.markdown("### 🔍 새로운 도서 검색")
-q = st.text_input("제목/저자 입력", placeholder="검색어를 입력하세요...", key="search_input", label_visibility="collapsed")
+q = st.text_input("제목/저자 입력", key="search_input", label_visibility="collapsed")
 if q:
    res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
    imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
@@ -150,23 +140,20 @@ if q:
            with scols[i % 4]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                # 검색 결과에서도 장르 우선 배치
-                sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
-                b_cols = st.columns(2)
-                if b_cols[0].button("📖 읽음", key=f"r_{i}"):
+                # 검색 결과에서도 선택 -> 장르 순서 유지
+                if st.button("📖 읽음 추가", key=f"r_{i}"):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
-                    st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
+                    st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": g_val})
                     save_all(); st.rerun()
-                if b_cols[1].button("🩵 위시", key=f"w_{i}"):
-                    st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
+                if st.button("🩵 위시 추가", key=f"w_{i}"):
+                    st.session_state.wishlist.append({"url": url, "genre": g_val}); save_all(); st.rerun()
  
 st.divider()
  
-# --- 탭 섹션 (공백 및 배치 수정) ---
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
-   st.markdown('<div class="tab-spacer"></div>', unsafe_allow_html=True) # 🚨 탭 하단 공백
+   st.markdown('<div class="tab-spacer"></div>', unsafe_allow_html=True) 
    if st.session_state.collection:
        edit_mode = st.toggle("🔧 편집 모드 활성화")
        p_idx = []
@@ -180,11 +167,11 @@ with tab_lib:
                    with dcols[c]:
                        st.image(itm["img"], use_container_width=True)
                        if edit_mode:
-                           # 🚨 1. 장르 수정 (위)
-                           new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
-                           
-                           # 🚨 2. 선택 체크박스 (아래)
+                           # 🚨 1. 선택 체크박스 (무조건 위!)
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
+                           
+                           # 🚨 2. 장르 수정 (아래)
+                           new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
                            
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                            except: val = [date.today(), date.today()]
@@ -214,10 +201,9 @@ with tab_lib:
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
            sheet.save(buf, format="PDF", resolution=300.0)
            st.download_button(f"📥 선택 PDF 인쇄", buf.getvalue(), "my_books.pdf", use_container_width=True)
-   else: st.info("서재가 비어있습니다.")
 
 with tab_wish:
-   st.markdown('<div class="tab-spacer"></div>', unsafe_allow_html=True) # 🚨 탭 하단 공백
+   st.markdown('<div class="tab-spacer"></div>', unsafe_allow_html=True)
    if st.session_state.wishlist:
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
@@ -237,4 +223,3 @@ with tab_wish:
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
                         if wb_cols[1].button("🗑️", key=f"w_d_{idx}"):
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
-   else: st.info("위시리스트가 비어 있습니다.")
