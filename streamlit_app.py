@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
  
-# --- 기본 설정 (수정 금지) ---
+# --- 기본 설정 ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,11 +16,12 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 ---
+# --- 🎨 스타일 레이아웃 (한 줄 4개 정렬 및 버튼 겹침 방지) ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
     
+   /* 탭 스타일 */
    button[data-baseweb="tab"] {{
        font-size: 20px !important;
        font-weight: bold !important;
@@ -32,42 +33,38 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   div[data-testid="stHorizontalBlock"] {{
-       align-items: center !important;
+   /* 카드 레이아웃 정렬 */
+   .book-card {{
+       margin-bottom: 20px;
+       padding: 10px;
+       border-radius: 10px;
+   }}
+
+   /* 이미지 높이 고정 (한 줄 4개일 때 최적화) */
+   [data-testid="stImage"] img {{
+       height: 220px !important;
+       object-fit: contain !important;
+       background-color: #f9f9f9;
+       border-radius: 8px;
+       margin-bottom: 8px;
+   }}
+ 
+   /* 버튼 간격 조정 및 겹침 방지 */
+   div.stButton > button {{
+       width: 100% !important;
+       margin-top: 4px !important;
+       height: 35px !important;
+       font-size: 13px !important;
    }}
 
    .stat-container {{ text-align: center; }}
-   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 10px; }}
+   .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 8px; }}
    .genre-card {{
        background-color: #f8f9fa;
        border: 1px solid #eee;
        border-radius: 8px;
-       padding: 5px 12px;
-       min-width: 60px;
+       padding: 4px 10px;
        text-align: center;
-   }}
-   .genre-label {{ font-size: 12px; color: #888; }}
-   .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
- 
-   .section-title {{ 
-       font-size: 18px !important; 
-       font-weight: bold !important; 
-       margin-bottom: 12px; 
-       display: block; 
-       color: #31333F;
-   }}
- 
-   [data-testid="stImage"] img {{
-       height: 200px !important;
-       object-fit: contain !important;
-       background-color: #f9f9f9;
-       border-radius: 5px;
-   }}
- 
-   div.stButton > button {{
-       padding: 2px 5px !important;
-       height: 35px !important;
-       font-size: 14px !important;
    }}
    </style>
    """, unsafe_allow_html=True)
@@ -77,7 +74,7 @@ if 'user_id' not in st.session_state:
  
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
  
-# --- 데이터 로드 ---
+# --- 데이터 로드 기능 ---
 if 'collection' not in st.session_state:
    st.session_state.collection = []; st.session_state.wishlist = []
    if os.path.exists(USER_DATA_FILE):
@@ -107,75 +104,74 @@ with t_col1:
    st.markdown(f"""<div class="stat-container"><div style="font-size: 14px; color: #666;">{datetime.now().year}년 누적</div><div style="font-size: 40px; font-weight: bold; color: #87CEEB;">✨{len(st.session_state.collection)}권✨</div></div>""", unsafe_allow_html=True)
  
 with t_col2:
-   st.markdown("<span class='section-title'>📚 장르별 독서 현황</span>", unsafe_allow_html=True)
    if st.session_state.collection:
        counts = Counter([itm.get("genre", "미지정") for itm in st.session_state.collection])
-       genre_items = "".join([f"<div class='genre-card'><div class='genre-label'>{g}</div><div class='genre-value'>{c}권</div></div>" for g, c in counts.items()])
+       genre_items = "".join([f"<div class='genre-card'><div style='font-size:11px;color:#888;'>{g}</div><div style='font-size:14px;font-weight:bold;'>{c}권</div></div>" for g, c in counts.items()])
        st.markdown(f"<div class='genre-wrapper'>{genre_items}</div>", unsafe_allow_html=True)
-   else: st.caption("기록이 없습니다.")
  
 st.divider()
  
-# --- 검색 섹션 ---
-st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
-q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
+# --- 검색 섹션 (한 줄 4개 정렬) ---
+st.markdown("### 🔍 새로운 도서 검색")
+q = st.text_input("제목/저자 입력", placeholder="검색어를 입력하세요...", label_visibility="collapsed")
 if q:
    res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
    imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
    genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
    if imgs:
-       scols = st.columns(4)
-       for i, url in enumerate(imgs[:4]):
-           with scols[i]:
+       scols = st.columns(4) # 검색 결과 한 줄에 4개
+       for i, url in enumerate(imgs[:8]): # 상위 8개까지 표시
+           with scols[i % 4]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
-                
                 b_cols = st.columns(2)
-                if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
+                if b_cols[0].button("📖 읽음", key=f"r_{i}"):
                     img_data = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
                     st.session_state.collection.append({"img": Image.open(io.BytesIO(img_data)).convert("RGB"), "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": sel_genre})
                     save_all(); st.rerun()
-                if b_cols[1].button("🩵 위시", key=f"w_{i}", use_container_width=True):
+                if b_cols[1].button("🩵 위시", key=f"w_{i}"):
                     st.session_state.wishlist.append({"url": url, "genre": sel_genre}); save_all(); st.rerun()
  
 st.divider()
  
-# --- 하단 탭 섹션 ---
-tab_lib, tab_wish = st.tabs(["내 서재", "위시리스트"])
+# --- 하단 탭 섹션 (한 줄 4개 정렬) ---
+tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
    if st.session_state.collection:
-       edit_mode = st.toggle("편집 모드 활성화") # 삭제 모드 -> 편집 모드 활성화로 변경
+       edit_mode = st.toggle("🔧 편집 모드 활성화")
        p_idx = []
-       dcols = st.columns(3)
-       for idx, itm in enumerate(st.session_state.collection):
-           with dcols[idx % 3]:
-                st.image(itm["img"], use_container_width=True)
-                
-                # 편집 모드일 때만 나타나는 기능들
-                if edit_mode:
-                    if st.checkbox("인쇄 선택", key=f"p_{idx}", value=True): p_idx.append(idx)
-                    st.caption(f"장르: {itm.get('genre', '미지정')}")
-                    try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
-                    except: val = [date.today(), date.today()]
-                    new_dr = st.date_input("날짜 수정", val, key=f"ed_{idx}", label_visibility="collapsed")
-                    
-                    b_edit_cols = st.columns([2, 1])
-                    if b_edit_cols[0].button("저장/수정", key=f"sv_{idx}", use_container_width=True):
-                        if len(new_dr) == 2:
-                            st.session_state.collection[idx]["start"], st.session_state.collection[idx]["end"] = new_dr[0].isoformat(), new_dr[1].isoformat()
-                            save_all(); st.rerun()
-                    if b_edit_cols[1].button("❌", key=f"dc_{idx}", use_container_width=True, help="삭제"):
-                        st.session_state.collection.pop(idx); save_all(); st.rerun()
-                else:
-                    # 일반 모드일 때는 기간 정보만 텍스트로 표시
-                    st.caption(f"장르: {itm.get('genre', '미지정')}")
-                    st.text(f"📅 {itm.get('start', '미정')} ~ {itm.get('end', '미정')}")
+       # 내 서재 한 줄 4개 정렬
+       rows = (len(st.session_state.collection) + 3) // 4
+       for r in range(rows):
+           dcols = st.columns(4)
+           for c in range(4):
+               idx = r * 4 + c
+               if idx < len(st.session_state.collection):
+                   itm = st.session_state.collection[idx]
+                   with dcols[c]:
+                       st.image(itm["img"], use_container_width=True)
+                       st.caption(f"장르: {itm.get('genre', '미지정')}")
+                       
+                       if edit_mode:
+                           if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
+                           try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
+                           except: val = [date.today(), date.today()]
+                           new_dr = st.date_input("날짜", val, key=f"ed_{idx}", label_visibility="collapsed")
+                           
+                           btn_cols = st.columns(2)
+                           if btn_cols[0].button("저장", key=f"sv_{idx}"):
+                               if len(new_dr) == 2:
+                                   st.session_state.collection[idx]["start"], st.session_state.collection[idx]["end"] = new_dr[0].isoformat(), new_dr[1].isoformat()
+                                   save_all(); st.rerun()
+                           if btn_cols[1].button("삭제", key=f"dc_{idx}"):
+                               st.session_state.collection.pop(idx); save_all(); st.rerun()
+                       else:
+                           st.text(f"📅 {itm.get('start', '미정')} ~ {itm.get('end', '미정')}")
  
-       # 편집 모드 활성화 시 PDF 버튼이 하단에 노출
        if edit_mode and p_idx:
-           st.divider()
+           st.write("")
            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
            x, y = 100, 100
            for i in p_idx:
@@ -185,23 +181,30 @@ with tab_lib:
                 if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX + 40
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
            buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
-           st.download_button(f"📥 선택한 {len(p_idx)}권 PDF 인쇄하기", buf.getvalue(), "my_bookshelf.pdf", use_container_width=True)
+           st.download_button(f"📥 선택한 {len(p_idx)}권 PDF 인쇄하기", buf.getvalue(), "my_reading_list.pdf", use_container_width=True)
    else:
-       st.write("아직 서재가 비어있습니다.")
+       st.info("아직 서재에 등록된 책이 없습니다.")
 
 with tab_wish:
    if st.session_state.wishlist:
-       wcols = st.columns(3)
-       for i, item in enumerate(st.session_state.wishlist):
-           with wcols[i % 3]:
-                r_img = requests.get(item['url'], headers={"User-Agent": "Mozilla/5.0"}).content
-                img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
-                st.image(img_obj, use_container_width=True)
-                st.caption(item.get('genre', '미지정'))
-                
-                wb_cols = st.columns(2)
-                if wb_cols[0].button("✅ 완료", key=f"wr_{i}", use_container_width=True):
-                    st.session_state.collection.append({"img": img_obj, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
-                if wb_cols[1].button("🗑️", key=f"w_d_{i}", use_container_width=True, help="위시리스트 삭제"):
-                    st.session_state.wishlist.pop(i); save_all(); st.rerun()
+       rows_w = (len(st.session_state.wishlist) + 3) // 4
+       for r in range(rows_w):
+           wcols = st.columns(4)
+           for c in range(4):
+               idx = r * 4 + c
+               if idx < len(st.session_state.wishlist):
+                   item = st.session_state.wishlist[idx]
+                   with wcols[c]:
+                        r_img = requests.get(item['url'], headers={"User-Agent": "Mozilla/5.0"}).content
+                        img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
+                        st.image(img_obj, use_container_width=True)
+                        st.caption(f"관심 장르: {item.get('genre', '미지정')}")
+                        
+                        wb_cols = st.columns(2)
+                        if wb_cols[0].button("✅완료", key=f"wr_{idx}"):
+                            st.session_state.collection.append({"img": img_obj, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
+                            st.session_state.wishlist.pop(idx); save_all(); st.rerun()
+                        if wb_cols[1].button("🗑️", key=f"w_d_{idx}"):
+                            st.session_state.wishlist.pop(idx); save_all(); st.rerun()
+   else:
+       st.info("위시리스트가 비어 있습니다.")
