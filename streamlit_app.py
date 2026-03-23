@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 1. 기본 설정 (수정 금지) ---
+# --- ⚙️ 1. 기본 설정 ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (탭 디자인 정밀 수정) ---
+# --- 🎨 2. 스타일 (폰트 크기 및 탭 간격/선 길이 수정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
@@ -35,7 +35,7 @@ st.markdown(f"""
     .genre-label {{ font-size: 12px; color: #888; }}
     .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
 
-    /* 타이틀 및 섹션 폰트 (기준 크기 18px / Bold) */
+    /* 타이틀 및 섹션 폰트 (기준: 18px / Bold) */
     .section-title {{ 
         font-size: 18px !important; 
         font-weight: bold !important; 
@@ -59,29 +59,30 @@ st.markdown(f"""
         font-size: 14px !important;
     }}
 
-    /* 탭 디자인 (회색 박스 제거 + 얇은 하늘색 하단 선) */
+    /* 탭 디자인 (크기 키우고 간격 넓힘) */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 24px;
+        gap: 60px !important; /* 탭 사이 간격을 아주 넓게 설정하여 선 길이 확보 */
         background-color: transparent !important;
     }}
     .stTabs [data-baseweb="tab"] {{
-        height: 50px;
+        height: 60px !important;
         background-color: transparent !important;
         border: none !important;
-        padding: 10px 0px !important;
-        /* 책 검색 타이틀과 동일한 폰트 스타일 적용 */
+        padding: 10px 20px !important; /* 탭 내부 좌우 패딩으로 선 길이 추가 확보 */
+        
+        /* '책 검색' 타이틀과 동일한 크기와 굵기 */
         font-size: 18px !important;
         font-weight: bold !important;
         color: #31333F !important;
     }}
-    /* 선택된 탭 강조선 (얇고 세련된 스타일) */
+    
+    /* 선택된 탭 강조선 (얇고 세련된 2px 하늘색) */
     .stTabs [aria-selected="true"] {{
         color: #31333F !important;
     }}
-    /* 하단 슬라이더 바를 얇은 하늘색으로 고정 */
     .stTabs [data-baseweb="tab-highlight"] {{
         background-color: #87CEEB !important;
-        height: 2px !important; /* 얇은 두께로 변경 */
+        height: 2px !important; /* 얇은 두께 유지 */
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -101,7 +102,7 @@ if 'user_id' not in st.session_state:
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 🔗 4. 데이터 로드 및 저장 함수 ---
+# --- 🔗 4. 데이터 로드 및 저장 ---
 if 'collection' not in st.session_state:
     st.session_state.collection = []; st.session_state.wishlist = []
     if os.path.exists(USER_DATA_FILE):
@@ -173,7 +174,7 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 7. [중단] 책 검색 (수동 입력) ---
+# --- 🔍 7. [중단] 책 검색 ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
@@ -203,8 +204,8 @@ if q:
 
 st.divider()
 
-# --- 📚 8. [하단] 탭 형태의 목록 관리 ---
-# 앞에 이모지를 추가하고, CSS에서 폰트 스타일을 타이틀과 일치시켰습니다.
+# --- 📚 8. [하단] 탭 형태 목록 (디자인 디테일 강화) ---
+# 간격이 넓어지면서 하단 하늘색 선도 시원하게 늘어납니다.
 tab_library, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_library:
