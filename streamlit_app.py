@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- ⚙️ 1. 기본 설정 (A4 출력 규격 및 DPI 고정) ---
+# --- ⚙️ 1. 기본 설정 (A4 출력 및 해상도 절대 고정) ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 시트 (사용자 지정 스타일 및 배경 제거) ---
+# --- 🎨 2. 스타일 통합 (UI 레이아웃 및 텍스트 배경 제거) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 3rem !important; padding-bottom: 2rem !important; }}
@@ -88,7 +88,7 @@ st.markdown(f"""
     }}
     .date-text {{ font-size: 14px; color: #888; display: block; margin-top: 8px; }}
 
-    /* 텍스트 배경 투명화 처리 */
+    /* 텍스트 배경 하이라이트 제거 */
     .stMarkdown div, .stMarkdown p, .stMarkdown span, div[data-testid="stCheckbox"] label div {{
         background-color: transparent !important;
         background: none !important;
@@ -113,9 +113,11 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🗝️ 3. 세션 상태 및 데이터 로드 ---
-if "user" in st.query_params:
-    st.session_state.user_id = st.query_params["user"]
+# --- 🗝️ 3. 데이터 및 세션 관리 (AttributeError 방지 로직) ---
+# 최신 Streamlit의 query_params 대응
+q_params = st.query_params
+if "user" in q_params:
+    st.session_state.user_id = q_params["user"]
 
 if 'user_id' not in st.session_state:
     st.markdown("<div class='main-title'>📖 독서 기록장 로그인</div>", unsafe_allow_html=True)
@@ -128,15 +130,17 @@ if 'user_id' not in st.session_state:
 
 USER_FILE = f"data_{st.session_state.user_id}.json"
 
+# 세션 변수 초기화
 if 'collection' not in st.session_state:
     st.session_state.collection = []
     st.session_state.wishlist = []
-    # [핵심] 검색 결과가 rerun 시 날아가지 않도록 저장하는 공간
+    # 검색 결과 유지용 캐시
     if 'search_results_cache' not in st.session_state:
         st.session_state.search_results_cache = []
     if 'last_search_query' not in st.session_state:
         st.session_state.last_search_query = ""
 
+    # 데이터 로드
     if os.path.exists(USER_FILE):
         try:
             with open(USER_FILE, "r", encoding="utf-8") as f:
@@ -168,9 +172,9 @@ def save_data():
         with open(USER_FILE, "w", encoding="utf-8") as f:
             json.dump(out, f, ensure_ascii=False, indent=4)
     except Exception as e:
-        st.error(f"저장 중 오류가 발생했습니다: {e}")
+        st.error(f"저장 오류: {e}")
 
-# --- 📊 4. 상단 대시보드 ---
+# --- 📊 4. 대시보드 ---
 st.markdown(f"<div class='main-title'>📖 {st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
 st.markdown('<div class="top-header-wrapper">', unsafe_allow_html=True)
 
@@ -190,22 +194,21 @@ with h_col2:
         g_html = "".join([f"<div class='genre-card-item'>{g}<br><b>{c}권</b></div>" for g, c in counts.items()])
         st.markdown(f"<div style='display:flex; gap:12px; flex-wrap:wrap;'>{g_html}</div>", unsafe_allow_html=True)
     else:
-        st.caption("데이터가 없습니다.")
+        st.caption("등록된 데이터가 없습니다.")
 st.markdown('</div>', unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 검색창 및 결과 (버그 수정됨) ---
+# --- 🔍 5. 검색창 및 결과 유지 로직 ---
 st.markdown("<span class='header-label'>🔍 책 검색</span>", unsafe_allow_html=True)
-search_q = st.text_input("검색어", placeholder="책 제목이나 저자를 입력하세요...", label_visibility="collapsed")
+search_q = st.text_input("검색어 입력", placeholder="제목 또는 저자를 입력하세요...", label_visibility="collapsed")
 
-# 검색어가 바뀌었을 때만 크롤링 수행
+# 검색 실행 및 캐싱
 if search_q and search_q != st.session_state.last_search_query:
     try:
         res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={search_q}", headers={"User-Agent": "Mozilla/5.0"}).text
         found_imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/[^"\'\s>]+cover[^"\'\s>]+', res)))
         found_genres = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
         
-        # 캐시에 저장
         st.session_state.search_results_cache = []
         for i in range(min(4, len(found_imgs))):
             st.session_state.search_results_cache.append({
@@ -214,15 +217,15 @@ if search_q and search_q != st.session_state.last_search_query:
             })
         st.session_state.last_search_query = search_q
     except:
-        st.error("알라딘 검색 중 오류가 발생했습니다.")
+        st.error("알라딘 검색 결과 호출 실패")
 
-# 캐시된 결과가 있다면 화면에 유지
+# 캐시된 결과 표시
 if st.session_state.search_results_cache:
     s_cols = st.columns(4)
     for i, item in enumerate(st.session_state.search_results_cache):
         with s_cols[i]:
             st.image(item["url"], use_container_width=True)
-            sel_genre = st.text_input("장르 설정", value=item["genre"], key=f"sq_{i}", label_visibility="collapsed")
+            sel_genre = st.text_input("장르", value=item["genre"], key=f"sq_{i}", label_visibility="collapsed")
             
             b_cols = st.columns(2)
             if b_cols[0].button("📖 읽음", key=f"rb_{i}", use_container_width=True):
@@ -238,13 +241,12 @@ if st.session_state.search_results_cache:
 
 st.divider()
 
-# --- 📚 6. 메인 목록 (내 서재 & 위시리스트) ---
+# --- 📚 6. 메인 목록 (내 서재 및 위시리스트) ---
 t_lib, t_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with t_lib:
     if st.session_state.collection:
-        # 이미지 1번 결과에서 보인 토글 버튼
-        is_edit = st.toggle("편집 및 PDF 모드 활성화")
+        is_edit = st.toggle("편집 및 PDF 모드 활성화", key="main_edit_toggle")
         sel_idx = []
         
         l_cols = st.columns(4)
@@ -252,18 +254,15 @@ with t_lib:
             with l_cols[i % 4]:
                 st.image(item["img"], use_container_width=True)
                 if is_edit:
-                    # 이미지 1번의 체크박스 로직
                     if st.checkbox("표지 선택", key=f"pc_{i}", value=True):
                         sel_idx.append(i)
                     
-                    e_genre = st.text_input("장르 수정", value=item.get('genre', '미지정'), key=f"eg_{i}", label_visibility="collapsed")
+                    e_genre = st.text_input("장르", value=item.get('genre', '미지정'), key=f"eg_{i}", label_visibility="collapsed")
                     
-                    try:
-                        d_val = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
-                    except:
-                        d_val = (date.today(), date.today())
+                    try: d_val = (date.fromisoformat(item["start"]), date.fromisoformat(item["end"]))
+                    except: d_val = (date.today(), date.today())
                     
-                    e_date = st.date_input("독서 기간", d_val, key=f"ed_{i}", label_visibility="collapsed")
+                    e_date = st.date_input("날짜", d_val, key=f"ed_{i}", label_visibility="collapsed")
                     
                     btn_cols = st.columns(2)
                     with btn_cols[0]:
@@ -284,12 +283,10 @@ with t_lib:
                     d_display = f"{item.get('start','').replace('-','/')} - {item.get('end','').replace('-','/')}"
                     st.markdown(f'<span class="date-text">{d_display}</span>', unsafe_allow_html=True)
 
-        # PDF 생성 섹션 (300줄 이상의 핵심 로직)
         if is_edit and sel_idx:
             st.divider()
-            st.markdown("<span class='header-label'>📥 PDF 내보내기 설정</span>", unsafe_allow_html=True)
-            if st.button(f"선택한 {len(sel_idx)}권으로 PDF 책장 만들기", use_container_width=True):
-                with st.spinner("PDF 생성 중..."):
+            if st.button(f"📥 선택한 {len(sel_idx)}권 PDF 책장 만들기", use_container_width=True):
+                with st.spinner("PDF 파일 생성 중..."):
                     canv = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
                     cur_x, cur_y = 150, 150
                     for idx in sel_idx:
@@ -307,9 +304,9 @@ with t_lib:
                     
                     pdf_buf = io.BytesIO()
                     canv.save(pdf_buf, format="PDF", resolution=300.0)
-                    st.download_button("📥 PDF 다운로드 하기", pdf_buf.getvalue(), "my_reading_shelf.pdf", use_container_width=True)
+                    st.download_button("📥 PDF 다운로드", pdf_buf.getvalue(), "my_book_shelf.pdf", use_container_width=True)
     else:
-        st.info("서재에 등록된 책이 없습니다.")
+        st.info("서재가 비어있습니다. 책을 검색해 추가해보세요.")
 
 with t_wish:
     if st.session_state.wishlist:
@@ -320,18 +317,14 @@ with t_wish:
                     w_res = requests.get(w['url'], timeout=5, headers={"User-Agent": "Mozilla/5.0"}).content
                     w_img = Image.open(io.BytesIO(w_res))
                     st.image(w_img, use_container_width=True)
-                    if st.button("📖 읽기 완료", key=f"wr_{i}", use_container_width=True):
+                    if st.button("📖 읽음 완료", key=f"wr_{i}", use_container_width=True):
                         st.session_state.collection.append({
-                            "img": w_img.convert("RGB"), 
-                            "url": w['url'], 
-                            "start": date.today().isoformat(), 
-                            "end": date.today().isoformat(), 
-                            "genre": w.get('genre')
+                            "img": w_img.convert("RGB"), "url": w['url'], 
+                            "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": w.get('genre')
                         })
                         st.session_state.wishlist.pop(i); save_data(); st.rerun()
                     if st.button("🗑️ 삭제", key=f"wd_{i}", use_container_width=True):
                         st.session_state.wishlist.pop(i); save_data(); st.rerun()
-                except:
-                    continue
+                except: continue
     else:
         st.info("위시리스트가 비어있습니다.")
