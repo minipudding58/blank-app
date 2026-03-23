@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 2. 스타일 시트 (버튼 강제 밀착 정렬 로직)
+# 🎨 2. 스타일 시트 (수평 밀착 정렬)
 # ==========================================
 st.markdown(f"""
     <style>
@@ -36,14 +36,20 @@ st.markdown(f"""
         padding-top: 15px; font-family: 'Pretendard', sans-serif;
     }}
 
-    /* 버튼 벌어짐 방지를 위한 커스텀 컨테이너 */
-    .stHorizontalBlock {{
-        gap: 8px !important; /* 컬럼 사이 간격을 8px로 고정 */
+    /* 버튼 수평 밀착 정렬 핵심 로직 */
+    .button-container {{
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        gap: 8px !important;
+        margin-top: 10px;
+        margin-bottom: 10px;
     }}
     
-    div[data-testid="column"] {{
-        width: fit-content !important;
-        flex: none !important;
+    /* 스트림릿 기본 버튼 간격 제거 */
+    div[data-testid="column"] > div > div > div > div {{
+        width: auto !important;
     }}
 
     .wish-top-spacer {{ height: 74px !important; display: block; }}
@@ -57,7 +63,7 @@ st.markdown(f"""
 
     /* 버튼 스타일 통일 */
     .stButton button {{
-        width: 100px !important; /* 버튼 너비를 고정하여 균형 맞춤 */
+        width: 100px !important;
         height: 40px !important;
         border-radius: 8px !important; 
         font-weight: 600 !important;
@@ -66,8 +72,14 @@ st.markdown(f"""
 
     [data-testid="stImage"] img {{ height: 220px !important; object-fit: contain !important; border-radius: 10px; border: 1px solid #F0F0F0; }}
     
-    .del-btn-red button {{ background-color: transparent !important; border: 1px solid #FF6B6B !important; }}
+    /* 삭제 버튼 빨간색 강조 */
+    .del-btn-red button {{ 
+        background-color: transparent !important; 
+        border: 1px solid #FF6B6B !important; 
+        color: #FF6B6B !important;
+    }}
     .del-btn-red button p {{ color: #FF6B6B !important; }}
+    
     .date-text {{ font-size: 13px; color: #999; display: block; margin-top: 8px; }}
     </style>
     """, unsafe_allow_html=True)
@@ -126,7 +138,7 @@ with h_col2:
 st.divider()
 
 # ==========================================
-# 🔍 5. 검색 결과 (버튼 밀착)
+# 🔍 5. 검색 결과 (수평 밀착)
 # ==========================================
 st.markdown("<span class='header-label'>🔍 새로운 도서 검색</span>", unsafe_allow_html=True)
 q_in = st.text_input("검색", placeholder="제목/저자 입력", label_visibility="collapsed")
@@ -145,8 +157,8 @@ if st.session_state.search_cache["items"]:
     for idx, item in enumerate(st.session_state.search_cache["items"]):
         with s_cols[idx]:
             st.image(item["url"], use_container_width=True)
-            # 검색 결과 버튼 밀착
-            btn_col1, btn_col2, _ = st.columns([1, 1, 2])
+            # 검색 버튼 수평 밀착
+            btn_col1, btn_col2 = st.columns([1, 1])
             with btn_col1:
                 if st.button("📖 읽음", key=f"s_add_lib_{idx}"):
                     img_raw = requests.get(item["url"], headers={"User-Agent":"Mozilla/5.0"}).content
@@ -160,7 +172,7 @@ if st.session_state.search_cache["items"]:
 st.divider()
 
 # ==========================================
-# 📚 6. 메인 탭 (저장/삭제 밀착)
+# 📚 6. 메인 탭 (수평 밀착 및 정렬)
 # ==========================================
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
@@ -179,8 +191,8 @@ with tab_lib:
                     except: d_range = (date.today(), date.today())
                     new_d = st.date_input("날짜", d_range, key=f"ed_{i}", label_visibility="collapsed")
                     
-                    # 내 서재 버튼 밀착
-                    edit_btn_col1, edit_btn_col2, _ = st.columns([1, 1, 2])
+                    # 저장/삭제 버튼 수평 밀착
+                    edit_btn_col1, edit_btn_col2 = st.columns([1, 1])
                     with edit_btn_col1:
                         if st.button("저장", key=f"esv_{i}"):
                             sd = new_d[0].isoformat() if isinstance(new_d, (list, tuple)) else new_d.isoformat()
@@ -221,8 +233,8 @@ with tab_wish:
                     w_resp = requests.get(item['url'], headers={"User-Agent":"Mozilla/5.0"}).content
                     w_img = Image.open(io.BytesIO(w_resp))
                     st.image(w_img, use_container_width=True)
-                    # 위시리스트 버튼 밀착
-                    wish_btn_col1, wish_btn_col2, _ = st.columns([1, 1, 2])
+                    # 위시리스트 완료/삭제 버튼 수평 밀착
+                    wish_btn_col1, wish_btn_col2 = st.columns([1, 1])
                     with wish_btn_col1:
                         if st.button("📖 완료", key=f"wdn_{i}"):
                             st.session_state.collection.append({"img": w_img.convert("RGB"), "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
