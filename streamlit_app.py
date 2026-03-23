@@ -16,12 +16,11 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 (한 줄 4개 정렬 및 버튼 겹침 방지) ---
+# --- 🎨 스타일 레이아웃 ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
     
-   /* 탭 스타일 */
    button[data-baseweb="tab"] {{
        font-size: 20px !important;
        font-weight: bold !important;
@@ -33,14 +32,7 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   /* 카드 레이아웃 정렬 */
-   .book-card {{
-       margin-bottom: 20px;
-       padding: 10px;
-       border-radius: 10px;
-   }}
-
-   /* 이미지 높이 고정 (한 줄 4개일 때 최적화) */
+   /* 이미지 높이 고정 및 카드 정렬 */
    [data-testid="stImage"] img {{
        height: 220px !important;
        object-fit: contain !important;
@@ -49,7 +41,6 @@ st.markdown(f"""
        margin-bottom: 8px;
    }}
  
-   /* 버튼 간격 조정 및 겹침 방지 */
    div.stButton > button {{
        width: 100% !important;
        margin-top: 4px !important;
@@ -74,7 +65,7 @@ if 'user_id' not in st.session_state:
  
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
  
-# --- 데이터 로드 기능 ---
+# --- 데이터 로드 ---
 if 'collection' not in st.session_state:
    st.session_state.collection = []; st.session_state.wishlist = []
    if os.path.exists(USER_DATA_FILE):
@@ -111,7 +102,7 @@ with t_col2:
  
 st.divider()
  
-# --- 검색 섹션 (한 줄 4개 정렬) ---
+# --- 검색 섹션 ---
 st.markdown("### 🔍 새로운 도서 검색")
 q = st.text_input("제목/저자 입력", placeholder="검색어를 입력하세요...", label_visibility="collapsed")
 if q:
@@ -119,8 +110,8 @@ if q:
    imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/product/\d+/\d+/cover[^"\'\s>]+', res)))
    genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
    if imgs:
-       scols = st.columns(4) # 검색 결과 한 줄에 4개
-       for i, url in enumerate(imgs[:8]): # 상위 8개까지 표시
+       scols = st.columns(4)
+       for i, url in enumerate(imgs[:8]):
            with scols[i % 4]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
@@ -135,14 +126,13 @@ if q:
  
 st.divider()
  
-# --- 하단 탭 섹션 (한 줄 4개 정렬) ---
+# --- 하단 탭 섹션 ---
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
    if st.session_state.collection:
        edit_mode = st.toggle("🔧 편집 모드 활성화")
        p_idx = []
-       # 내 서재 한 줄 4개 정렬
        rows = (len(st.session_state.collection) + 3) // 4
        for r in range(rows):
            dcols = st.columns(4)
@@ -153,13 +143,11 @@ with tab_lib:
                    with dcols[c]:
                        st.image(itm["img"], use_container_width=True)
                        st.caption(f"장르: {itm.get('genre', '미지정')}")
-                       
                        if edit_mode:
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                            except: val = [date.today(), date.today()]
                            new_dr = st.date_input("날짜", val, key=f"ed_{idx}", label_visibility="collapsed")
-                           
                            btn_cols = st.columns(2)
                            if btn_cols[0].button("저장", key=f"sv_{idx}"):
                                if len(new_dr) == 2:
@@ -171,7 +159,7 @@ with tab_lib:
                            st.text(f"📅 {itm.get('start', '미정')} ~ {itm.get('end', '미정')}")
  
        if edit_mode and p_idx:
-           st.write("")
+           buf = io.BytesIO()
            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
            x, y = 100, 100
            for i in p_idx:
@@ -180,10 +168,10 @@ with tab_lib:
                 img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX), Image.LANCZOS)
                 if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX + 40
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
-           buf = io.BytesIO(); sheet.save(buf, format="PDF", resolution=300.0)
-           st.download_button(f"📥 선택한 {len(p_idx)}권 PDF 인쇄하기", buf.getvalue(), "my_reading_list.pdf", use_container_width=True)
+           sheet.save(buf, format="PDF", resolution=300.0)
+           st.download_button(f"📥 선택한 {len(p_idx)}권 PDF 인쇄하기", buf.getvalue(), "my_books.pdf", use_container_width=True)
    else:
-       st.info("아직 서재에 등록된 책이 없습니다.")
+       st.info("아직 서재가 비어있습니다.")
 
 with tab_wish:
    if st.session_state.wishlist:
@@ -198,7 +186,8 @@ with tab_wish:
                         r_img = requests.get(item['url'], headers={"User-Agent": "Mozilla/5.0"}).content
                         img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
                         st.image(img_obj, use_container_width=True)
-                        st.caption(f"관심 장르: {item.get('genre', '미지정')}")
+                        # '관심 장르'를 '장르'로 변경
+                        st.caption(f"장르: {item.get('genre', '미지정')}")
                         
                         wb_cols = st.columns(2)
                         if wb_cols[0].button("✅완료", key=f"wr_{idx}"):
