@@ -61,7 +61,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🗝️ 3. 로그인 및 세션 관리 (사이드바 연동) ---
+# --- 🗝️ 3. 로그인 및 세션 관리 (새로고침 유지) ---
 if "user" in st.query_params:
     st.session_state.user_id = st.query_params["user"]
 
@@ -108,7 +108,7 @@ def save_all():
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 5. 사이드바 (추가된 부분) ---
+# --- 🏠 5. 사이드바 ---
 with st.sidebar:
     st.markdown(f"### 👤 **{st.session_state.user_id}** 님의 서재")
     st.write("---")
@@ -148,21 +148,21 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 7. [중단] 책 검색 ---
+# --- 🔍 7. [중단] 책 검색 (장르 자동 추출 제거) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
+    # 가장 확실한 이미지 URL 패턴으로만 검색 결과 추출
     imgs = list(dict.fromkeys(re.findall(r'https://image.aladin.co.kr/(?:product|pimg)/\d+/\d+/cover[^"\'\s>]+', res)))
-    genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
     
     if imgs:
         scols = st.columns(4)
         for i, url in enumerate(imgs[:4]):
             with scols[i]:
                 st.image(url, use_container_width=True)
-                g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
+                # 장르 자동 추출을 삭제하고 기본값 "미지정"으로 수동 입력창 제공
+                sel_genre = st.text_input("장르 직접 입력", value="미지정", key=f"sg_{i}", label_visibility="collapsed")
                 
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
@@ -175,6 +175,8 @@ if q:
                 if b_cols[1].button("🩵 위시", key=f"w_{i}", use_container_width=True):
                     st.session_state.wishlist.append({"url": url, "genre": sel_genre})
                     save_all(); st.rerun()
+    else:
+        st.warning("검색 결과가 없습니다.")
 
 st.divider()
 
@@ -220,13 +222,18 @@ with r_col:
         wcols = st.columns(3)
         for i, item in enumerate(st.session_state.wishlist):
             with wcols[i % 3]:
-                r_img = requests.get(item['url'], headers={"User-Agent": "Mozilla/5.0"}).content
+                url = item.get('url') if isinstance(item, dict) else item
+                r_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
                 img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
                 st.image(img_obj, use_container_width=True)
-                st.caption(item.get('genre', '미지정'))
+                st.caption(item.get('genre', '미지정') if isinstance(item, dict) else "미지정")
                 wb_cols = st.columns(2)
                 if wb_cols[0].button("✅읽음", key=f"wr_{i}", use_container_width=True):
-                    st.session_state.collection.append({"img": img_obj, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
+                    st.session_state.collection.append({
+                        "img": img_obj, "url": url, 
+                        "start": date.today().isoformat(), "end": date.today().isoformat(), 
+                        "genre": item.get('genre', '미지정') if isinstance(item, dict) else "미지정"
+                    })
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
                 if wb_cols[1].button("🗑️", key=f"w_d_{i}", use_container_width=True):
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
