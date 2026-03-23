@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (상단 디자인 + 탭 디자인 대폭 수정) ---
+# --- 🎨 2. 스타일 (탭 디자인 정밀 수정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
@@ -35,7 +35,7 @@ st.markdown(f"""
     .genre-label {{ font-size: 12px; color: #888; }}
     .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
 
-    /* 타이틀 및 섹션 폰트 (기준 크기) */
+    /* 타이틀 및 섹션 폰트 (기준 크기 18px / Bold) */
     .section-title {{ 
         font-size: 18px !important; 
         font-weight: bold !important; 
@@ -59,28 +59,29 @@ st.markdown(f"""
         font-size: 14px !important;
     }}
 
-    /* 탭 디자인 전면 수정 (회색 박스 제거, 하늘색 하단 줄만 표시) */
+    /* 탭 디자인 (회색 박스 제거 + 얇은 하늘색 하단 선) */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 20px;
+        gap: 24px;
         background-color: transparent !important;
     }}
     .stTabs [data-baseweb="tab"] {{
         height: 50px;
-        background-color: transparent !important; /* 배경 박스 제거 */
+        background-color: transparent !important;
         border: none !important;
         padding: 10px 0px !important;
-        font-size: 18px !important; /* 책 검색 타이틀과 동일 크기 */
-        font-weight: bold !important; /* 볼드체 적용 */
-        color: #31333F !important; /* 기본 검정 계열 */
+        /* 책 검색 타이틀과 동일한 폰트 스타일 적용 */
+        font-size: 18px !important;
+        font-weight: bold !important;
+        color: #31333F !important;
     }}
-    /* 선택된 탭: 아래 하늘색 줄 강조 */
+    /* 선택된 탭 강조선 (얇고 세련된 스타일) */
     .stTabs [aria-selected="true"] {{
         color: #31333F !important;
-        border-bottom: 3px solid #87CEEB !important; /* 하늘색 줄 */
     }}
-    /* 기존 빨간색 스타일 및 불필요한 장식 제거 */
+    /* 하단 슬라이더 바를 얇은 하늘색으로 고정 */
     .stTabs [data-baseweb="tab-highlight"] {{
-        background-color: #87CEEB !important; /* 슬라이더 바 하늘색으로 변경 */
+        background-color: #87CEEB !important;
+        height: 2px !important; /* 얇은 두께로 변경 */
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -202,8 +203,9 @@ if q:
 
 st.divider()
 
-# --- 📚 8. [하단] 탭 형태의 목록 관리 (수정된 디자인 적용) ---
-tab_library, tab_wish = st.tabs(["내 서재", "위시리스트"])
+# --- 📚 8. [하단] 탭 형태의 목록 관리 ---
+# 앞에 이모지를 추가하고, CSS에서 폰트 스타일을 타이틀과 일치시켰습니다.
+tab_library, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_library:
     st.write("")
