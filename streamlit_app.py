@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
  
-# --- 기본 설정 (수정 금지) ---
+# --- 기본 설정 ---
 DPI = 300
 TARGET_H_PX = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -32,7 +32,6 @@ st.markdown(f"""
        height: 4px !important;
    }}
 
-   /* 이미지 높이 고정 및 카드 정렬 */
    [data-testid="stImage"] img {{
        height: 220px !important;
        object-fit: contain !important;
@@ -44,7 +43,7 @@ st.markdown(f"""
    div.stButton > button {{
        width: 100% !important;
        margin-top: 4px !important;
-       height: 35px !important;
+       height: 35 : px !important;
        font-size: 13px !important;
    }}
 
@@ -56,6 +55,12 @@ st.markdown(f"""
        border-radius: 8px;
        padding: 4px 10px;
        text-align: center;
+   }}
+   
+   /* 위시리스트 상단 공백 클래스 */
+   .wish-top-spacer {{
+       height: 62px !important;
+       display: block;
    }}
    </style>
    """, unsafe_allow_html=True)
@@ -174,6 +179,7 @@ with tab_lib:
        st.info("아직 서재가 비어있습니다.")
 
 with tab_wish:
+   st.markdown('<div class="wish-top-spacer"></div>', unsafe_allow_html=True) # 공백 추가
    if st.session_state.wishlist:
        rows_w = (len(st.session_state.wishlist) + 3) // 4
        for r in range(rows_w):
@@ -189,7 +195,7 @@ with tab_wish:
                         st.caption(f"장르: {item.get('genre', '미지정')}")
                         
                         wb_cols = st.columns(2)
-                        if wb_cols[0].button("✅완료", key=f"wr_{idx}"):
+                        if wb_cols[0].button("✅읽음", key=f"wr_{idx}"): # 완료 -> 읽음 변경
                             st.session_state.collection.append({"img": img_obj, "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
                             st.session_state.wishlist.pop(idx); save_all(); st.rerun()
                         if wb_cols[1].button("🗑️", key=f"w_d_{idx}"):
