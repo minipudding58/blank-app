@@ -12,9 +12,9 @@ from collections import Counter
 # ⚙️ 1. 전역 설정 및 상수 (A4 출력 최적화 포함)
 # ==========================================
 DPI = 300
-TARGET_H_PX = int((40 / 25.4) * DPI)  # 책 표지 높이 약 40mm 기준
-A4_W_PX = int((210 / 25.4) * DPI)     # A4 너비 (픽셀)
-A4_H_PX = int((297 / 25.4) * DPI)     # A4 높이 (픽셀)
+TARGET_H_PX = int((40 / 25.4) * DPI)
+A4_W_PX = int((210 / 25.4) * DPI)
+A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(
     page_title="나의 독서 기록장",
@@ -24,44 +24,27 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 2. 스타일 시트 (기존 디자인 유지 + 요청한 정렬만 추가)
+# 🎨 2. 스타일 시트 (버튼 배치 방식 전면 수정)
 # ==========================================
 st.markdown(f"""
     <style>
-    .block-container {{ 
-        padding-top: 2.5rem !important; 
-        padding-bottom: 2rem !important; 
-        max-width: 1200px;
-    }}
+    .block-container {{ padding-top: 2.5rem !important; max-width: 1200px; }}
     
     .main-title {{ 
-        font-size: 44px; 
-        font-weight: 800; 
-        color: #1E1E1E; 
-        margin-bottom: 55px !important; 
-        letter-spacing: -0.5px !important; 
-        line-height: 1.6 !important; 
-        padding-top: 15px;
-        font-family: 'Pretendard', sans-serif;
-    }}
-    
-    /* 위시리스트 버튼 수평 나란히 배치 */
-    .wish-button-container {{
-        display: flex;
-        gap: 10px;
-        justify-content: flex-start;
-        margin-top: 10px;
+        font-size: 44px; font-weight: 800; color: #1E1E1E; 
+        margin-bottom: 55px !important; letter-spacing: -0.5px !important; line-height: 1.6 !important; 
+        padding-top: 15px; font-family: 'Pretendard', sans-serif;
     }}
 
-    /* 검색 결과 읽음 버튼 옆 공백 확보 */
-    .search-button-row {{
-        display: flex;
-        gap: 10px;
-        justify-content: flex-start;
-        margin-top: 10px;
-    }}
-    .search-spacer {{
-        width: 95px; /* 버튼 너비만큼의 빈 공간 */
+    /* 검색 결과 및 위시리스트 버튼 수평 정렬 */
+    .button-row-container {{
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 12px !important; /* 버튼 사이 간격 */
+        justify-content: flex-start !important;
+        align-items: center !important;
+        margin-top: 10px !important;
+        width: 100% !important;
     }}
 
     .wish-top-spacer {{ height: 74px !important; display: block; }}
@@ -73,17 +56,12 @@ st.markdown(f"""
         padding: 12px 20px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.03); min-width: 90px;
     }}
 
-    .stTabs [data-baseweb="tab"] p {{ font-size: 19px !important; font-weight: 700 !important; }}
-    [data-testid="stImage"] img {{ height: 220px !important; object-fit: contain !important; border-radius: 10px; border: 1px solid #F0F0F0; }}
-    
     .stButton button {{
-        width: auto !important; 
-        min-width: 95px !important;
-        height: 40px !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
+        width: auto !important; min-width: 100px !important; height: 42px !important;
+        border-radius: 8px !important; font-weight: 600 !important;
     }}
-    
+
+    [data-testid="stImage"] img {{ height: 220px !important; object-fit: contain !important; border-radius: 10px; border: 1px solid #F0F0F0; }}
     .del-btn-red button {{ background-color: transparent !important; border: 1px solid #FF6B6B !important; }}
     .del-btn-red button p {{ color: #FF6B6B !important; }}
     .date-text {{ font-size: 13px; color: #999; display: block; margin-top: 8px; }}
@@ -91,7 +69,7 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 🗝️ 3. 데이터 관리 (기존 로직 유지)
+# 🗝️ 3. 데이터 관리 로직
 # ==========================================
 if 'user_id' not in st.session_state:
     try:
@@ -144,7 +122,7 @@ with h_col2:
 st.divider()
 
 # ==========================================
-# 🔍 5. 검색 결과 (image_3e9160.png 반영)
+# 🔍 5. 검색 결과 (수평 나란히 배치 수정)
 # ==========================================
 st.markdown("<span class='header-label'>🔍 새로운 도서 검색</span>", unsafe_allow_html=True)
 q_in = st.text_input("검색", placeholder="제목/저자 입력", label_visibility="collapsed")
@@ -163,28 +141,28 @@ if st.session_state.search_cache["items"]:
     for idx, item in enumerate(st.session_state.search_cache["items"]):
         with s_cols[idx]:
             st.image(item["url"], use_container_width=True)
-            # 읽음 버튼 옆에 투명 공백 배치
-            st.markdown('<div class="search-button-row">', unsafe_allow_html=True)
-            if st.button("📖 읽음", key=f"s_add_lib_{idx}"):
-                img_raw = requests.get(item["url"], headers={"User-Agent":"Mozilla/5.0"}).content
-                st.session_state.collection.append({"img": Image.open(io.BytesIO(img_raw)).convert("RGB"), "url": item["url"], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item["genre"]})
-                commit_changes(); st.rerun()
-            st.markdown('<div class="search-spacer"></div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-            
-            if st.button("🩵 위시", key=f"s_add_wish_{idx}"):
-                st.session_state.wishlist.append({"url": item["url"], "genre": item["genre"]})
-                commit_changes(); st.rerun()
+            # 읽음과 위시를 한 줄에 나란히 배치
+            btn_container = st.container()
+            with btn_container:
+                col_btn1, col_btn2 = st.columns([1, 1])
+                with col_btn1:
+                    if st.button("📖 읽음", key=f"s_add_lib_{idx}"):
+                        img_raw = requests.get(item["url"], headers={"User-Agent":"Mozilla/5.0"}).content
+                        st.session_state.collection.append({"img": Image.open(io.BytesIO(img_raw)).convert("RGB"), "url": item["url"], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item["genre"]})
+                        commit_changes(); st.rerun()
+                with col_btn2:
+                    if st.button("🩵 위시", key=f"s_add_wish_{idx}"):
+                        st.session_state.wishlist.append({"url": item["url"], "genre": item["genre"]})
+                        commit_changes(); st.rerun()
 
 st.divider()
 
 # ==========================================
-# 📚 6. 메인 탭 (기존 모든 기능 복구)
+# 📚 6. 메인 탭 (모든 기존 기능 유지)
 # ==========================================
 tab_lib, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_lib:
-    # 편집 및 PDF 모드 활성화 토글
     is_edit = st.toggle("편집 및 PDF 모드 활성화", key="edit_toggle_full")
     selected_for_pdf = []
     if st.session_state.collection:
@@ -211,7 +189,6 @@ with tab_lib:
                     st.markdown(f"**장르: {item['genre']}**")
                     st.markdown(f'<span class="date-text">{item["start"]} ~ {item["end"]}</span>', unsafe_allow_html=True)
 
-        # PDF 생성 기능 복구
         if is_edit and selected_for_pdf:
             st.divider()
             if st.button(f"📥 선택한 {len(selected_for_pdf)}권 PDF 생성", use_container_width=True):
@@ -237,14 +214,16 @@ with tab_wish:
                     w_resp = requests.get(item['url'], headers={"User-Agent":"Mozilla/5.0"}).content
                     w_img = Image.open(io.BytesIO(w_resp))
                     st.image(w_img, use_container_width=True)
-                    # 버튼 수평 나란히 배치
-                    st.markdown('<div class="wish-button-container">', unsafe_allow_html=True)
-                    if st.button("📖 읽기 완료!", key=f"wdn_{i}"):
-                        st.session_state.collection.append({"img": w_img.convert("RGB"), "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
-                        st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
-                    st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
-                    if st.button("🗑️ 위시 삭제", key=f"wdl_{i}"):
-                        st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    # '읽기 완료'와 '삭제'도 나란히 배치
+                    w_btn_col1, w_btn_col2 = st.columns([1, 1])
+                    with w_btn_col1:
+                        if st.button("📖 완료", key=f"wdn_{i}"):
+                            st.session_state.collection.append({"img": w_img.convert("RGB"), "url": item['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
+                            st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
+                    with w_btn_col2:
+                        st.markdown('<div class="del-btn-red">', unsafe_allow_html=True)
+                        if st.button("🗑️ 삭제", key=f"wdl_{i}"):
+                            st.session_state.wishlist.pop(i); commit_changes(); st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
                 except: continue
+    else: st.info("위시리스트가 비어있습니다.")
