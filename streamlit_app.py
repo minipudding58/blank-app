@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
  
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
  
-# --- 🎨 스타일 레이아웃 ---
+# --- 🎨 스타일 레이아웃 (테두리 제거 및 공백 유지) ---
 st.markdown(f"""
    <style>
    .block-container {{ padding-top: 1.5rem !important; }}
@@ -74,20 +74,41 @@ st.markdown(f"""
    </style>
    """, unsafe_allow_html=True)
 
-# --- 사이드바 (복구) ---
-with st.sidebar:
-    st.header("👤 사용자 설정")
-    new_user_id = st.text_input("닉네임", value=st.query_params.get("user", "치이카와"))
-    if st.button("적용하기"):
-        st.query_params["user"] = new_user_id
-        st.rerun()
-
+# --- 세션 및 데이터 관리 ---
 if 'user_id' not in st.session_state:
    st.session_state.user_id = st.query_params.get("user", "치이카와")
  
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
- 
-# --- 데이터 로드 ---
+
+# --- 사이드바 (로그아웃/데이터 삭제 추가) ---
+with st.sidebar:
+    st.markdown(f"### 👤 현재 사용자: **{st.session_state.user_id}**")
+    
+    new_id = st.text_input("닉네임 변경", placeholder="새 닉네임 입력...")
+    if st.button("적용하기"):
+        if new_id:
+            st.query_params["user"] = new_id
+            st.rerun()
+
+    st.divider()
+    
+    # 로그아웃 기능
+    if st.button("🚪 로그아웃", use_container_width=True):
+        st.query_params.clear()
+        for key in st.session_state.keys():
+            del st.session_state[key]
+        st.rerun()
+        
+    # 데이터 삭제 기능
+    if st.button("⚠️ 데이터 전체 삭제", use_container_width=True, help="현재 사용자의 모든 독서 기록이 삭제됩니다."):
+        if os.path.exists(USER_DATA_FILE):
+            os.remove(USER_DATA_FILE)
+            st.session_state.collection = []
+            st.session_state.wishlist = []
+            st.warning("모든 데이터가 삭제되었습니다.")
+            st.rerun()
+
+# --- 데이터 로드 로직 ---
 if 'collection' not in st.session_state:
    st.session_state.collection = []; st.session_state.wishlist = []
    if os.path.exists(USER_DATA_FILE):
@@ -108,7 +129,7 @@ def save_all():
    data = {"wishlist": st.session_state.wishlist, "collection": [{"url": i["url"], "start": i["start"], "end": i["end"], "genre": i.get("genre", "미지정")} for i in st.session_state.collection]}
    with open(USER_DATA_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=4)
  
-# --- 상단 레이아웃 ---
+# --- 상단 레이아웃 (통계) ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write(""); st.write("")
  
@@ -169,9 +190,11 @@ with tab_lib:
                        st.image(itm["img"], use_container_width=True)
                        
                        if edit_mode:
-                           # 장르 수정 칸 추가 (복구 및 개선)
+                           # 1. 장르 수정 칸 (위로 이동)
                            new_genre = st.text_input("장르 수정", value=itm.get('genre', '미지정'), key=f"edit_g_{idx}", label_visibility="collapsed")
+                           # 2. 선택 버튼 (아래로 이동)
                            if st.checkbox("선택", key=f"p_{idx}", value=True): p_idx.append(idx)
+                           
                            try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                            except: val = [date.today(), date.today()]
                            new_dr = st.date_input("날짜", val, key=f"ed_{idx}", label_visibility="collapsed")
