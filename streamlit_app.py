@@ -91,19 +91,20 @@ st.markdown(f"""
     .date-text {{ font-size: 14px; color: #888; display: block; margin-top: 8px; }}
 
     /* --- [교정] 편집 모드 디자인 및 배경색 제거 --- */
-    /* 토글 스위치 활성화 색상 -> 하늘색 */
-    div[data-testid="stCheckbox"] input[type="checkbox"]:checked ~ div {{
+    
+    /* 1. 토글 스위치 활성화 색상 -> 하늘색 (#87CEEB) */
+    div[role="switch"][aria-checked="true"] {{
         background-color: #87CEEB !important;
     }}
     
-    /* 체크박스(표지 선택) 색상 -> 하늘색 */
+    /* 2. 체크박스(표지 선택) 색상 -> 하늘색 (#87CEEB) */
     div[data-testid="stCheckbox"] [data-baseweb="checkbox"] [aria-checked="true"] > div {{
         background-color: #87CEEB !important;
         border-color: #87CEEB !important;
     }}
 
-    /* 텍스트 하이라이트(배경색) 완전 제거 */
-    .stMarkdown div, .stMarkdown p, .stMarkdown span {{
+    /* 3. 텍스트 하이라이트(배경색) 완전 제거 */
+    .stMarkdown div, .stMarkdown p, .stMarkdown span, .stCheckbox label div {{
         background-color: transparent !important;
         background: none !important;
     }}
