@@ -16,40 +16,38 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 통합 (모든 디자인 디테일 박제) ---
+# --- 🎨 2. 스타일 통합 (공백 최적화 버전) ---
 st.markdown(f"""
     <style>
-    /* 전체 배경 및 여백 - 타이틀 잘림 방지를 위해 최상단 패딩 대폭 추가 */
-    .block-container {{ padding-top: 5rem !important; padding-bottom: 2rem !important; }}
+    /* 전체 배경 및 상단 여백 설정 */
+    .block-container {{ padding-top: 3rem !important; padding-bottom: 2rem !important; }}
     
-    /* [상단] 메인 타이틀 - 텍스트가 잘리지 않도록 높이(height)와 여백 확실히 확보 */
+    /* [상단] 메인 타이틀 - 하단 마진을 대폭 줄여 공백 제거 */
     .main-title {{ 
         font-size: 36px; 
         font-weight: bold; 
         color: #31333F; 
-        margin-bottom: 50px; 
-        line-height: 1.6;
+        margin-bottom: 10px !important; /* 공백 절반 이하로 축소 */
+        line-height: 1.2;
         display: block;
-        height: auto;
-        min-height: 60px;
     }}
 
-    /* [상단] 대시보드 레이아웃 */
+    /* [상단] 대시보드 레이아웃 - 상단 패딩과 마진을 줄여 타이틀에 밀착 */
     .top-header-wrapper {{
         display: flex;
         justify-content: flex-start;
         align-items: center;
-        gap: 100px;
-        margin-bottom: 35px;
-        padding: 20px 0;
+        gap: 80px;
+        margin-top: 0px !important;
+        margin-bottom: 25px;
+        padding: 10px 0 !important; /* 패딩 축소 */
     }}
     
-    /* [폰트] 누적 독서 & 장르 현황 스타일 통일 (18px Bold) */
     .header-label {{ 
         font-size: 18px !important; 
         font-weight: bold !important; 
         color: #31333F !important;
-        margin-bottom: 12px;
+        margin-bottom: 8px;
         display: block;
     }}
     
@@ -59,21 +57,20 @@ st.markdown(f"""
         font-weight: bold;
         color: #87CEEB;
         display: block;
-        margin-top: 10px;
+        margin-top: 5px;
     }}
     
-    /* [장르 현황] 카드 디자인 */
     .genre-card-item {{ 
         background-color: #fcfcfc; 
         border: 1px solid #f0f0f0; 
         border-radius: 12px; 
-        padding: 12px 22px; 
+        padding: 10px 20px; 
         text-align: center; 
-        min-width: 100px;
+        min-width: 90px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     }}
     
-    /* [탭] 18px 볼드 + 긴 하늘색 밑줄 */
+    /* 탭 스타일 */
     .stTabs [data-baseweb="tab"] p {{
         font-size: 18px !important;
         font-weight: bold !important;
@@ -81,16 +78,15 @@ st.markdown(f"""
     }}
     .stTabs [data-baseweb="tab"] {{
         background-color: transparent !important;
-        border: none !important;
-        padding-left: 60px !important;
-        padding-right: 60px !important;
+        padding-left: 50px !important;
+        padding-right: 50px !important;
     }}
     .stTabs [data-baseweb="tab-highlight"] {{
         background-color: #87CEEB !important;
         height: 4px !important;
     }}
 
-    /* [목록] 이미지 높이 고정 (210px) 및 이미지 비율 유지 */
+    /* 목록 이미지 설정 */
     [data-testid="stImage"] img {{ 
         height: 210px !important; 
         object-fit: contain !important; 
@@ -99,19 +95,16 @@ st.markdown(f"""
     }}
     .date-text {{ font-size: 14px; color: #888; display: block; margin-top: 8px; }}
 
-    /* [편집 모드] 빨간색 강조 */
+    /* 편집 모드 스타일 */
     .edit-label-red label {{ color: #ff6b6b !important; font-weight: bold !important; }}
     .edit-btn-red button p {{ color: #ff6b6b !important; font-weight: bold !important; }}
     
-    /* [입력창] 지저분한 테두리 및 그림자 제거 */
     input, div[data-baseweb="input"], .stTextInput div {{ 
         border: none !important; 
-        box-shadow: none !important; 
         background-color: #f9f9f9 !important;
         border-radius: 6px !important;
     }}
     
-    /* 버튼 공통 높이 */
     div.stButton > button {{
         height: 42px !important;
         border-radius: 8px !important;
@@ -169,7 +162,7 @@ def save_data():
     except Exception as e:
         st.error(f"저장 중 오류: {e}")
 
-# --- 📊 4. 상단 대시보드 ---
+# --- 📊 4. 상단 대시보드 (수정된 공백 적용) ---
 st.markdown(f"<div class='main-title'>📖 {st.session_state.user_id}의 독서기록</div>", unsafe_allow_html=True)
 
 st.markdown('<div class="top-header-wrapper">', unsafe_allow_html=True)
@@ -194,7 +187,7 @@ with h_col2:
 st.markdown('</div>', unsafe_allow_html=True)
 st.divider()
 
-# --- 🔍 5. 책 검색 (백업 로직 기반) ---
+# --- 🔍 5. 책 검색 ---
 st.markdown("<span class='header-label'>🔍 책 검색</span>", unsafe_allow_html=True)
 search_q = st.text_input("검색어 입력", placeholder="제목 또는 저자를 입력하세요...", label_visibility="collapsed")
 
@@ -288,7 +281,11 @@ with t_wish:
                     w_r = requests.get(w['url'], headers={"User-Agent": "Mozilla/5.0"}).content
                     st.image(Image.open(io.BytesIO(w_r)), use_container_width=True)
                     if st.button("📖 독독 완료", key=f"wr_{i}", use_container_width=True):
-                        st.session_state.collection.append({"img": Image.open(io.BytesIO(w_r)).convert("RGB"), "url": w['url'], "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": w.get('genre')})
+                        st.session_state.collection.append({
+                            "img": Image.open(io.BytesIO(w_r)).convert("RGB"), 
+                            "url": w['url'], "start": date.today().isoformat(), 
+                            "end": date.today().isoformat(), "genre": w.get('genre')
+                        })
                         st.session_state.wishlist.pop(i); save_data(); st.rerun()
                     if st.button("🗑️ 삭제", key=f"wd_{i}", use_container_width=True):
                         st.session_state.wishlist.pop(i); save_data(); st.rerun()
