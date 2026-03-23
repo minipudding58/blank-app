@@ -16,12 +16,12 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (상단 디자인 박제 + 이미지 높이 고정) ---
+# --- 🎨 2. 스타일 (상단 디자인 + 탭 디자인 대폭 수정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
     
-    /* 상단 통계 스타일 (✨권수✨ 디자인 박제) */
+    /* 상단 통계 스타일 */
     .stat-container {{ text-align: center; }}
     .genre-wrapper {{ display: flex; flex-wrap: wrap; gap: 10px; }}
     .genre-card {{
@@ -35,7 +35,7 @@ st.markdown(f"""
     .genre-label {{ font-size: 12px; color: #888; }}
     .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
 
-    /* 타이틀 및 섹션 폰트 */
+    /* 타이틀 및 섹션 폰트 (기준 크기) */
     .section-title {{ 
         font-size: 18px !important; 
         font-weight: bold !important; 
@@ -59,22 +59,28 @@ st.markdown(f"""
         font-size: 14px !important;
     }}
 
-    /* 탭 디자인 커스텀 */
+    /* 탭 디자인 전면 수정 (회색 박스 제거, 하늘색 하단 줄만 표시) */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 10px;
+        gap: 20px;
+        background-color: transparent !important;
     }}
     .stTabs [data-baseweb="tab"] {{
-        height: 45px;
-        white-space: pre-wrap;
-        background-color: #f8f9fa;
-        border-radius: 8px 8px 0px 0px;
-        gap: 1px;
-        padding-top: 10px;
-        padding-bottom: 10px;
+        height: 50px;
+        background-color: transparent !important; /* 배경 박스 제거 */
+        border: none !important;
+        padding: 10px 0px !important;
+        font-size: 18px !important; /* 책 검색 타이틀과 동일 크기 */
+        font-weight: bold !important; /* 볼드체 적용 */
+        color: #31333F !important; /* 기본 검정 계열 */
     }}
+    /* 선택된 탭: 아래 하늘색 줄 강조 */
     .stTabs [aria-selected="true"] {{
-        background-color: #e8f4f8 !important;
-        font-weight: bold !important;
+        color: #31333F !important;
+        border-bottom: 3px solid #87CEEB !important; /* 하늘색 줄 */
+    }}
+    /* 기존 빨간색 스타일 및 불필요한 장식 제거 */
+    .stTabs [data-baseweb="tab-highlight"] {{
+        background-color: #87CEEB !important; /* 슬라이더 바 하늘색으로 변경 */
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -142,7 +148,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- 📊 6. [최상단] 타이틀 및 통계 (백업 코드 디자인 복제) ---
+# --- 📊 6. [최상단] 타이틀 및 통계 ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write(""); st.write("")
 
@@ -166,7 +172,7 @@ with t_col2:
 
 st.divider()
 
-# --- 🔍 7. [중단] 책 검색 (수동 입력 유지) ---
+# --- 🔍 7. [중단] 책 검색 (수동 입력) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
 q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
@@ -196,14 +202,14 @@ if q:
 
 st.divider()
 
-# --- 📚 8. [하단] 탭 형태의 목록 관리 (내 서재 / 위시리스트) ---
-tab_library, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
+# --- 📚 8. [하단] 탭 형태의 목록 관리 (수정된 디자인 적용) ---
+tab_library, tab_wish = st.tabs(["내 서재", "위시리스트"])
 
 with tab_library:
     st.write("")
     if st.session_state.collection:
         p_idx = []; del_m = st.toggle("삭제 모드", key="del_lib")
-        dcols = st.columns(4) # 서재는 4열로 더 넓게 배치
+        dcols = st.columns(4)
         for idx, itm in enumerate(st.session_state.collection):
             with dcols[idx % 4]:
                 st.image(itm["img"], use_container_width=True)
