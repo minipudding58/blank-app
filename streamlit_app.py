@@ -8,7 +8,7 @@ import os
 from datetime import datetime, date
 from collections import Counter
 
-# --- 기본 설정 ---
+# --- ⚙️ 1. 기본 설정 (수정 금지) ---
 DPI = 300
 TARGET_H_PX_PRINT = int((40 / 25.4) * DPI) 
 A4_W_PX = int((210 / 25.4) * DPI)
@@ -16,22 +16,19 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 스타일 (사이드바 복구 + 입력칸 빨간 테두리 제거) ---
+# --- 🎨 2. 스타일 (사이드바 복구 + 입력칸 테두리 수정 + 이미지 고정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
     
-    /* ✅ 입력창(닉네임, 검색창) 포커스 시 빨간 테두리 제거 */
+    /* 입력창 포커스 시 빨간 테두리 제거 */
     div[data-baseweb="input"] {{
-        border: 1px solid #ccc !important; /* 기본 테두리색 */
-        box-shadow: none !important; /* 그림자 제거 */
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
     }}
     div[data-baseweb="input"]:focus-within {{
-        border: 1px solid #87CEEB !important; /* 포커스 시 하늘색 테두리 */
+        border: 1px solid #87CEEB !important;
         box-shadow: 0 0 0 0.2rem rgba(135, 206, 235, 0.25) !important;
-    }}
-    input {{
-        color: #333 !important;
     }}
 
     /* 상단 통계 스타일 */
@@ -43,35 +40,28 @@ st.markdown(f"""
     }}
     .section-title {{ font-size: 18px !important; font-weight: bold !important; margin-bottom: 12px; display: block; color: #31333F; }}
     
-    /* 이미지 높이 고정 및 유령 박스 방지 배경 */
+    /* 책 이미지 세로 길이 200px 고정 */
     [data-testid="stImage"] img {{
         height: 200px !important; object-fit: contain !important;
         background-color: #f9f9f9; border-radius: 5px;
     }}
     div.stButton > button {{ padding: 2px 5px !important; height: 35px !important; font-size: 14px !important; }}
-    
-    /* 사이드바 스타일 정의 */
-    .stSidebar {{
-        background-color: #f0f2f6;
-        padding: 20px;
-    }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 🗝️ [최초 화면] 닉네임 입력칸 ---
+# --- 🗝️ 3. 닉네임 접속 로직 ---
 if 'user_id' not in st.session_state:
     st.title("📖 독서 기록 시작하기")
-    # ✅ 빨간 테두리 없는 닉네임 입력창
     u_input = st.text_input("나만의 닉네임을 입력하세요", placeholder="예: 치이카와")
     if st.button("기록장 열기") and u_input:
         st.session_state.user_id = u_input
         st.query_params["user"] = u_input
         st.rerun()
-    st.stop() # 닉네임 입력 전까지 아래 코드 실행 안 함
+    st.stop()
 
 USER_DATA_FILE = f"data_{st.session_state.user_id}.json"
 
-# --- 🔗 데이터 로드 (무조건 불러오는 무적 로직 유지) ---
+# --- 🔗 4. 데이터 로드 (무적 로딩 로직) ---
 if 'collection' not in st.session_state:
     st.session_state.collection = []; st.session_state.wishlist = []
     if os.path.exists(USER_DATA_FILE):
@@ -80,7 +70,6 @@ if 'collection' not in st.session_state:
                 d = json.load(f)
                 st.session_state.wishlist = d.get("wishlist", [])
                 for itm in d.get("collection", []):
-                    # 데이터 형식이 달라도 url만 있으면 무조건 시도
                     u = itm.get("url") if isinstance(itm, dict) else itm
                     if u:
                         try:
@@ -89,9 +78,9 @@ if 'collection' not in st.session_state:
                                 st.session_state.collection.append({
                                     "img": Image.open(io.BytesIO(r.content)).convert("RGB"), 
                                     "url": u,
-                                    "start": itm.get("start", date.today().isoformat()) if isinstance(itm, dict) else date.today().isoformat(),
-                                    "end": itm.get("end", date.today().isoformat()) if isinstance(itm, dict) else date.today().isoformat(),
-                                    "genre": itm.get("genre", "미지정") if isinstance(itm, dict) else "미지정"
+                                    "start": itm.get("start", date.today().isoformat()),
+                                    "end": itm.get("end", date.today().isoformat()),
+                                    "genre": itm.get("genre", "미지정")
                                 })
                         except: continue
         except: pass
@@ -104,30 +93,22 @@ def save_all():
     with open(USER_DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# --- 🏠 ✅ [사이드바 복구] ---
+# --- 🏠 5. 사이드바 (로그아웃/삭제) ---
 with st.sidebar:
     st.markdown(f"### 👤 **{st.session_state.user_id}** 님의 서재")
     st.write("---")
-    
-    # 로그아웃 기능
     if st.button("🚪 로그아웃", use_container_width=True):
         st.query_params.clear()
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        st.session_state.clear()
         st.rerun()
-        
     st.write("---")
-    
-    # 전체 삭제 기능
     if st.button("🔥 내 기록 전체 삭제", use_container_width=True):
-        if os.remove(USER_DATA_FILE):
-            os.remove(USER_DATA_FILE)
+        if os.path.exists(USER_DATA_FILE): os.remove(USER_DATA_FILE)
         st.query_params.clear()
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        st.session_state.clear()
         st.rerun()
 
-# --- 상단 레이아웃 ---
+# --- 🏠 6. 메인 화면 상단 (통계) ---
 st.title(f"📖 {st.session_state.user_id}의 독서 기록")
 st.write(""); st.write("")
 
@@ -144,13 +125,14 @@ with t_col2:
 
 st.divider()
 
-# --- 검색 섹션 (빨간 테두리 없는 검색창) ---
+# --- 🔍 7. 책 검색 (장르 자동 연동 정밀화) ---
 st.markdown("<span class='section-title'>🔍 책 검색</span>", unsafe_allow_html=True)
-q = st.text_input("검색어 입력창", placeholder="제목/저자 입력...", label_visibility="collapsed")
+q = st.text_input("검색어 입력", placeholder="제목/저자 입력...", label_visibility="collapsed")
 if q:
     res = requests.get(f"https://www.aladin.co.kr/search/wsearchresult.aspx?SearchTarget=Book&SearchWord={q}", headers={"User-Agent": "Mozilla/5.0"}).text
-    # 진짜 책 이미지만 골라내는 정규식
+    # 진짜 책 이미지만 필터링
     imgs = list(dict.fromkeys(re.findall(r'https://image\.aladin\.co\.kr/(?:product|pimg)/\d+/\d+/cover[^"\'\s>]+', res)))
+    # 장르 텍스트 추출 정규식
     genre_raw = re.findall(r'\[<a[^>]+>([^<]+)</a>\]', res)
     
     if imgs:
@@ -159,7 +141,6 @@ if q:
             with scols[i]:
                 st.image(url, use_container_width=True)
                 g_val = genre_raw[i] if i < len(genre_raw) else "미지정"
-                # 장르 입력칸 (이미지 높이가 고정되어 열이 맞춰짐)
                 sel_genre = st.text_input("장르", value=g_val, key=f"sg_{i}", label_visibility="collapsed")
                 b_cols = st.columns(2)
                 if b_cols[0].button("📖 읽음", key=f"r_{i}", use_container_width=True):
@@ -171,13 +152,12 @@ if q:
 
 st.divider()
 
-# --- 목록 섹션 ---
+# --- 📚 8. 목록 섹션 ---
 l_col, r_col = st.columns(2)
 with l_col:
     st.markdown("<span class='section-title'>✅ 읽은 책</span>", unsafe_allow_html=True)
     if st.session_state.collection:
-        p_idx = []
-        del_m = st.toggle("삭제 모드")
+        p_idx = []; del_m = st.toggle("삭제 모드")
         dcols = st.columns(3)
         for idx, itm in enumerate(st.session_state.collection):
             with dcols[idx % 3]:
@@ -186,7 +166,6 @@ with l_col:
                 st.caption(f"장르: {itm.get('genre', '미지정')}")
                 try: val = [date.fromisoformat(itm["start"]), date.fromisoformat(itm["end"])]
                 except: val = [date.today(), date.today()]
-                # 날짜 입력창
                 new_dr = st.date_input("날짜", val, key=f"ed_{idx}", label_visibility="collapsed")
                 b_edit_cols = st.columns([2, 1])
                 if b_edit_cols[0].button("수정", key=f"sv_{idx}", use_container_width=True):
@@ -195,14 +174,10 @@ with l_col:
                         save_all(); st.rerun()
                 if del_m and b_edit_cols[1].button("❌", key=f"dc_{idx}", use_container_width=True):
                     st.session_state.collection.pop(idx); save_all(); st.rerun()
-        
         if p_idx:
-            # PDF 생성 로직 유지
-            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255))
-            x, y = 100, 100
+            sheet = Image.new('RGB', (A4_W_PX, A4_H_PX), (255, 255, 255)); x, y = 100, 100
             for i in p_idx:
-                img = st.session_state.collection[i]["img"]
-                ratio = TARGET_H_PX_PRINT / float(img.size[1])
+                img = st.session_state.collection[i]["img"]; ratio = TARGET_H_PX_PRINT / float(img.size[1])
                 img_res = img.resize((int(img.size[0] * ratio), TARGET_H_PX_PRINT), Image.LANCZOS)
                 if x + img_res.size[0] > A4_W_PX - 100: x = 100; y += TARGET_H_PX_PRINT + 40
                 sheet.paste(img_res, (x, y)); x += img_res.size[0] + 40
@@ -219,10 +194,10 @@ with r_col:
                 r_img = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).content
                 img_obj = Image.open(io.BytesIO(r_img)).convert("RGB")
                 st.image(img_obj, use_container_width=True)
-                st.caption(item.get('genre', '미지정') if isinstance(item, dict) else "미지정")
+                st.caption(item.get('genre', '미지정'))
                 wb_cols = st.columns(2)
                 if wb_cols[0].button("✅읽음", key=f"wr_{i}", use_container_width=True):
-                    st.session_state.collection.append({"img": img_obj, "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정') if isinstance(item, dict) else "미지정"})
+                    st.session_state.collection.append({"img": img_obj, "url": url, "start": date.today().isoformat(), "end": date.today().isoformat(), "genre": item.get('genre', '미지정')})
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
                 if wb_cols[1].button("🗑️", key=f"w_d_{i}", use_container_width=True):
                     st.session_state.wishlist.pop(i); save_all(); st.rerun()
