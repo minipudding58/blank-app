@@ -16,7 +16,7 @@ A4_H_PX = int((297 / 25.4) * DPI)
 
 st.set_page_config(page_title="나의 독서 기록", page_icon="📖", layout="wide")
 
-# --- 🎨 2. 스타일 (폰트 크기 및 탭 간격/선 길이 수정) ---
+# --- 🎨 2. 스타일 (폰트 크기 18px 및 탭 간격 100px로 확실히 수정) ---
 st.markdown(f"""
     <style>
     .block-container {{ padding-top: 1.5rem !important; }}
@@ -35,7 +35,7 @@ st.markdown(f"""
     .genre-label {{ font-size: 12px; color: #888; }}
     .genre-value {{ font-size: 16px; font-weight: bold; color: #333; }}
 
-    /* 타이틀 및 섹션 폰트 (기준: 18px / Bold) */
+    /* [기준] 타이틀 및 섹션 폰트: 18px, Bold */
     .section-title {{ 
         font-size: 18px !important; 
         font-weight: bold !important; 
@@ -52,37 +52,29 @@ st.markdown(f"""
         border-radius: 5px;
     }}
 
-    /* 버튼 스타일 통일 */
-    div.stButton > button {{
-        padding: 2px 5px !important;
-        height: 35px !important;
-        font-size: 14px !important;
-    }}
-
-    /* 탭 디자인 (크기 키우고 간격 넓힘) */
+    /* 탭 디자인 수정 */
     .stTabs [data-baseweb="tab-list"] {{
-        gap: 60px !important; /* 탭 사이 간격을 아주 넓게 설정하여 선 길이 확보 */
+        gap: 100px !important; /* 탭 사이 간격을 100px로 대폭 늘려 선 길이를 확보함 */
         background-color: transparent !important;
     }}
     .stTabs [data-baseweb="tab"] {{
         height: 60px !important;
         background-color: transparent !important;
         border: none !important;
-        padding: 10px 20px !important; /* 탭 내부 좌우 패딩으로 선 길이 추가 확보 */
         
-        /* '책 검색' 타이틀과 동일한 크기와 굵기 */
-        font-size: 18px !important;
-        font-weight: bold !important;
+        /* '책 검색' 타이틀과 동일하게 18px, 볼드 적용 */
+        font-size: 18px !important; 
+        font-weight: bold !important; 
         color: #31333F !important;
     }}
     
-    /* 선택된 탭 강조선 (얇고 세련된 2px 하늘색) */
+    /* 선택된 탭 강조선 (얇은 2px 하늘색) */
     .stTabs [aria-selected="true"] {{
         color: #31333F !important;
     }}
     .stTabs [data-baseweb="tab-highlight"] {{
         background-color: #87CEEB !important;
-        height: 2px !important; /* 얇은 두께 유지 */
+        height: 2px !important; 
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -204,8 +196,7 @@ if q:
 
 st.divider()
 
-# --- 📚 8. [하단] 탭 형태 목록 (디자인 디테일 강화) ---
-# 간격이 넓어지면서 하단 하늘색 선도 시원하게 늘어납니다.
+# --- 📚 8. [하단] 탭 형태 목록 ---
 tab_library, tab_wish = st.tabs(["📚 내 서재", "🩵 위시리스트"])
 
 with tab_library:
